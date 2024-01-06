@@ -1,2 +1,2 @@
 # graph-attention-networks
-Graph Attention Networks (GAT)
+Graph Attention Networks (GATs) for node classification.
