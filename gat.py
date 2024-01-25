@@ -116,6 +116,11 @@ class GraphAttentionNetwork(keras.Model):
 		]
 		self.output_layer = layers.Dense(output_dim)
 
+	def set_graph(self, node_states, edges):
+		# call this only during inference to change the underlying graph structure. Neural network weights will be preserved
+		self.node_states = node_states
+		self.edges = edges
+
 	def call(self, inputs):
 		node_states, edges = inputs
 		x = self.preprocess(node_states)
@@ -133,11 +138,11 @@ class GraphAttentionNetwork(keras.Model):
 			# compute loss
 			loss = self.compiled_loss(labels, tf.gather(outputs, indices))
 		# compute gradients
-		grads = tape.gradient(loss, self.trainable_weighs)
+		grads = tape.gradient(loss, self.trainable_weights)
 		# apply gradients (update weights)
-		optimizer.apply_gradients(zip(grads, self.trainable_weights))
+		self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
 		# update metric(s)
-		self.compiled_metrics.update_state(labels, tf.gather(output, indices))
+		self.compiled_metrics.update_state(labels, tf.gather(outputs, indices))
 
 		return {m.name: m.result() for m in self.metrics}
 

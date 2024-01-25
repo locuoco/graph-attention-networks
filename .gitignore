@@ -6,6 +6,7 @@
 !Makefile
 
 # Temporary/backup files
+__pycache__/
 *.bak
 
 # Windows dynamic-link libraries
