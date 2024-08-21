@@ -10,12 +10,14 @@ class GraphAttention(layers.Layer):
 	def __init__(
 		self,
 		units,
-		kernel_initializer='glorot_uniform',
-		kernel_regularizer=None,
+		dropout_rate=0,
+		kernel_initializer='glorot_normal',
+		kernel_regularizer=keras.regularizers.L2(5e-4),
 		**kwargs,
 	):
 		super().__init__(**kwargs)
 		self.units = units
+		self.dropout_rate = dropout_rate
 		self.kernel_initializer = keras.initializers.get(kernel_initializer)
 		self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
 
@@ -53,6 +55,7 @@ class GraphAttention(layers.Layer):
 		attention_scores = tf.squeeze(attention_scores, -1)
 
 		# (2) normalize attention scores
+		attention_scores = tf.nn.dropout(attention_scores, self.dropout_rate)
 		attention_scores = tf.math.exp(tf.clip_by_value(attention_scores, -2, 2))
 		attention_scores_sum = tf.math.unsorted_segment_sum(
 			data=attention_scores,
@@ -74,11 +77,22 @@ class GraphAttention(layers.Layer):
 		return out
 
 class MultiHeadGraphAttention(layers.Layer):
-	def __init__(self, units, num_heads=8, merge_type='concat', **kwargs):
+	def __init__(
+		self,
+		units,
+		num_heads=8,
+		merge_type='concat',
+		activation=tf.nn.elu,
+		dropout_rate=0,
+		kernel_initializer='glorot_normal',
+		kernel_regularizer=keras.regularizers.L2(5e-4),
+		**kwargs,
+	):
 		super().__init__(**kwargs)
 		self.num_heads = num_heads
 		self.merge_type = merge_type
-		self.attention_layers = [GraphAttention(units) for _ in range(num_heads)]
+		self.attention_layers = [GraphAttention(units, dropout_rate, kernel_initializer, kernel_regularizer) for _ in range(num_heads)]
+		self.activation = activation
 
 	def call(self, inputs):
 		atom_features, pair_indices = inputs
@@ -94,7 +108,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		else:
 			outputs = tf.reduce_mean(tf.stack(outputs, axis=-1), axis=-1)
 		# activate and return node states
-		return tf.nn.relu(outputs)
+		return self.activation(outputs)
 
 class GraphAttentionNetwork(keras.Model):
 	def __init__(
@@ -127,6 +141,64 @@ class GraphAttentionNetwork(keras.Model):
 		for attention_layer in self.attention_layers:
 			x = attention_layer([x, edges]) + x
 		outputs = self.output_layer(x)
+		return outputs
+
+	def train_step(self, data):
+		indices, labels = data
+
+		with tf.GradientTape() as tape:
+			# forward pass
+			outputs = self([self.node_states, self.edges])
+			# compute loss
+			loss = self.compiled_loss(labels, tf.gather(outputs, indices))
+		# compute gradients
+		grads = tape.gradient(loss, self.trainable_weights)
+		# apply gradients (update weights)
+		self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
+		# update metric(s)
+		self.compiled_metrics.update_state(labels, tf.gather(outputs, indices))
+
+		return {m.name: m.result() for m in self.metrics}
+
+	def predict_step(self, data):
+		indices = data
+		# forward pass
+		outputs = self([self.node_states, self.edges])
+		# compute probabilities
+		return tf.nn.softmax(tf.gather(outputs, indices))
+
+	def test_step(self, data):
+		indices, labels = data
+		# forward pass
+		outputs = self([self.node_states, self.edges])
+		# compute loss
+		loss = self.compiled_loss(labels, tf.gather(outputs, indices))
+		# update metric(s)
+		self.compiled_metrics.update_state(labels, tf.gather(outputs, indices))
+
+		return {m.name: m.result() for m in self.metrics}
+
+class GraphAttentionNetworkTransductive(keras.Model):
+	def __init__(
+		self,
+		node_states,
+		edges,
+		output_dim,
+		**kwargs,
+	):
+		super().__init__(**kwargs)
+		self.node_states = node_states
+		self.edges = edges
+		self.dropout_layer = layers.Dropout(0.6)
+		self.attention_layer1 = MultiHeadGraphAttention(8, 8, dropout_rate=0.6)
+		self.attention_layer2 = MultiHeadGraphAttention(output_dim, 1, dropout_rate=0.6)
+
+	def call(self, inputs):
+		node_states, edges = inputs
+		x = self.dropout_layer(node_states)
+		x = self.attention_layer1([x, edges])
+		x = self.dropout_layer(x)
+		outputs = self.attention_layer2([x, edges])
 		return outputs
 
 	def train_step(self, data):

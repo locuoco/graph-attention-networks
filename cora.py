@@ -10,7 +10,6 @@ nodes_indices = graph.nodes()
 edges = tf.transpose(tf.convert_to_tensor(graph.edges()))
 
 print('Edges shape:\t\t', edges.shape)
-print(edges)
 
 # get split masks
 val_mask = graph.ndata['val_mask']
@@ -38,29 +37,28 @@ train_labels = tf.boolean_mask(labels, train_mask)
 # train and evalate
 
 # define hyper-parameters
-hidden_units = 200
-num_heads = 4
-num_layers = 3
+hidden_units = 8
+num_heads = 8
+num_layers = 2
 output_dim = tf.math.reduce_max(labels)+1
 
-num_epochs = 100
+num_epochs = 200
 batch_size = 256
-learning_rate = 0.3
-momentum = 0.9
+learning_rate = 0.005
 
 loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-optimizer = keras.optimizers.SGD(learning_rate, momentum=momentum)
+optimizer = keras.optimizers.Adam(learning_rate, global_clipnorm=1.0)
 accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_acc',
 	min_delta=1e-5,
-	patience=5,
+	patience=100,
 	restore_best_weights=True
 )
 
 # build model
-gat_model = gat.GraphAttentionNetwork(
-	features, edges, hidden_units, num_heads, num_layers, output_dim
+gat_model = gat.GraphAttentionNetworkTransductive(
+	features, edges, output_dim
 )
 
 # compile model
