@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow import keras
 import dgl
 
-import gat
+import gat.models
 
 dataset = dgl.data.CiteseerGraphDataset()
 graph = dataset[0]
@@ -56,7 +56,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 )
 
 # build model
-gat_model = gat.GraphAttentionNetworkTransductive(
+gat_model = gat.models.GraphAttentionNetworkTransductive(
 	features, edges, output_dim
 )
 
