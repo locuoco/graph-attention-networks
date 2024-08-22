@@ -9,7 +9,7 @@ graph = dataset[0]
 nodes_indices = graph.nodes()
 edges = tf.transpose(tf.convert_to_tensor(graph.edges()))
 
-print('Edges shape:\t\t', edges.shape)
+print('Edges shape:', edges.shape)
 
 # get split masks
 val_mask = graph.ndata['val_mask']
@@ -37,14 +37,13 @@ train_labels = tf.boolean_mask(labels, train_mask)
 # train and evalate
 
 # define hyper-parameters
-hidden_units = 8
-num_heads = 8
-num_layers = 2
 output_dim = tf.math.reduce_max(labels)+1
 
-num_epochs = 200
-batch_size = 256
+num_epochs = 500
+batch_size = 512
 learning_rate = 0.005
+
+tf.random.set_seed(1234)
 
 loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate, global_clipnorm=1.0)
