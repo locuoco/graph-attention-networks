@@ -4,7 +4,7 @@ import dgl
 
 import gat.models
 
-dataset = dgl.data.CoraGraphDataset()
+dataset = dgl.data.PubmedGraphDataset()
 graph = dataset[0]
 nodes_indices = graph.nodes()
 edges = tf.transpose(tf.convert_to_tensor(graph.edges()))
@@ -41,7 +41,7 @@ output_dim = tf.math.reduce_max(labels)+1
 
 num_epochs = 500
 batch_size = 512
-learning_rate = 0.005
+learning_rate = 0.01
 
 tf.random.set_seed(1234)
 
@@ -56,7 +56,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 )
 
 # build model
-gat_model = gat.models.GraphAttentionNetworkTransductive(
+gat_model = gat.models.GraphAttentionNetworkTransductive2(
 	features, edges, output_dim
 )
 

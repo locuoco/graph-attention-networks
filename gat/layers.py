@@ -12,7 +12,7 @@ class GraphAttention(layers.Layer):
 		units,
 		dropout_rate=0,
 		kernel_initializer='glorot_normal',
-		kernel_regularizer=keras.regularizers.L2(5e-4),
+		kernel_regularizer=None,
 		**kwargs,
 	):
 		super().__init__(**kwargs)
@@ -112,7 +112,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		activation=tf.nn.elu,
 		dropout_rate=0,
 		kernel_initializer='glorot_normal',
-		kernel_regularizer=keras.regularizers.L2(5e-4),
+		kernel_regularizer=None,
 		**kwargs,
 	):
 		super().__init__(**kwargs)
