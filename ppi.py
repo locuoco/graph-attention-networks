@@ -44,8 +44,8 @@ tf.random.set_seed(1234)
 
 loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate)
-accuracy_fn0 = tf.metrics.BinaryAccuracy(name='acc')
-accuracy_fn = tfa.metrics.F1Score(num_classes=output_dim, average='micro', threshold=0.5, name='f1_score')
+accuracy_fn = tf.metrics.BinaryAccuracy(name='acc')
+f1_fn = tfa.metrics.F1Score(num_classes=output_dim, average='micro', threshold=0.5, name='f1_score')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_f1_score',
 	min_delta=1e-5,
@@ -57,7 +57,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 gat_model = gat.models.GraphAttentionNetworkInductive(output_dim)
 
 # compile model
-gat_model.compile(loss=loss_fn, optimizer=optimizer, metrics=[accuracy_fn0, accuracy_fn])
+gat_model.compile(loss=loss_fn, optimizer=optimizer, metrics=[accuracy_fn, f1_fn])
 
 val_generator = gat.models.DataGenerator(val_graphs, val_labels)
 test_generator = gat.models.DataGenerator(test_graphs, test_labels)
@@ -73,7 +73,9 @@ gat_model.fit(
 
 test_loss, test_accuracy, test_f1 = gat_model.evaluate(test_generator, verbose=0)
 
-print('--'*38 + f'\nTest loss: {test_loss}, accuracy: {test_accuracy*100:.1f}, F1 score: {test_accuracy*100:.1f}%')
+gat_model.save('ppi.keras')
+
+print('--'*38 + f'\nTest loss: {test_loss}, accuracy: {test_accuracy*100:.1f}, F1 score: {test_f1*100:.1f}%')
 
 
 
