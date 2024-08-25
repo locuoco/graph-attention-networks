@@ -6,6 +6,8 @@ import dgl
 
 import gat.models
 
+load_last_weights = True
+
 val_dataset = dgl.data.PPIDataset(mode='valid')
 test_dataset = dgl.data.PPIDataset(mode='test')
 train_dataset = dgl.data.PPIDataset(mode='train')
@@ -21,7 +23,7 @@ mode_labels = [val_labels, test_labels, train_labels]
 for i, dataset in enumerate(mode_datasets):
 	for graph in dataset:
 		# get edges
-		edges = tf.transpose(tf.convert_to_tensor(graph.edges()))
+		edges = tf.transpose(tf.convert_to_tensor(graph.edges(), dtype=tf.int32))
 
 		# get node features
 		features = graph.ndata['feat']
@@ -50,6 +52,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_f1_score',
 	min_delta=1e-5,
 	patience=100,
+	mode='max',
 	restore_best_weights=True
 )
 
@@ -58,6 +61,12 @@ gat_model = gat.models.GraphAttentionNetworkInductive(output_dim)
 
 # compile model
 gat_model.compile(loss=loss_fn, optimizer=optimizer, metrics=[accuracy_fn, f1_fn])
+
+weightsfile = './weights/ppi.weights.h5'
+
+if load_last_weights and os.path.isfile(weightsfile):
+	gat_model(train_graphs[0]) # force model building
+	gat_model.load_weights(weightsfile)
 
 val_generator = gat.models.DataGenerator(val_graphs, val_labels)
 test_generator = gat.models.DataGenerator(test_graphs, test_labels)
@@ -73,9 +82,9 @@ gat_model.fit(
 
 test_loss, test_accuracy, test_f1 = gat_model.evaluate(test_generator, verbose=0)
 
-gat_model.save('ppi.keras')
+gat_model.save_weights(weightsfile)
 
-print('--'*38 + f'\nTest loss: {test_loss}, accuracy: {test_accuracy*100:.1f}, F1 score: {test_f1*100:.1f}%')
+print('--'*38 + f'\nTest loss: {test_loss:.5f}, accuracy: {test_accuracy*100:.1f}%, F1 score: {test_f1*100:.1f}%')
 
 
 

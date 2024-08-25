@@ -72,11 +72,13 @@ class MultiHeadGraphAttention(layers.Layer):
 			self.residual_weights = False
 		self.built = True
 
+	@tf.function
 	def call(self, inputs, training):
 		output = self.call_sparse_edges_(inputs, training)
 		# activate and return node states
 		return self.activation(output + self.bias)
 
+	@tf.function
 	def call_sparse_edges_(self, inputs, training):
 		x, edges = inputs
 		targets, sources = edges[:, 1], edges[:, 0]
@@ -101,8 +103,8 @@ class MultiHeadGraphAttention(layers.Layer):
 
 		# (1) compute pair-wise attention scores
 		f_t = tf.reduce_sum(xp * self.kernel_attention1, -1)
-		f_t = tf.gather(f_t, targets)
 		f_s = tf.reduce_sum(xp * self.kernel_attention2, -1)
+		f_t = tf.gather(f_t, targets)
 		f_s = tf.gather(f_s, sources)
 		scores = tf.nn.leaky_relu(f_t + f_s)
 		# shape = (E, H, F')
@@ -112,7 +114,6 @@ class MultiHeadGraphAttention(layers.Layer):
 		# shape = (N,)
 		scores /= tf.gather(tf.math.unsorted_segment_sum(scores, targets, n_nodes), targets)
 		scores = scores[..., None]
-		# shape = (E,)
 
 		if training:
 			scores = tf.nn.dropout(scores, self.dropout_rate)
@@ -133,7 +134,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		# residual (skip) connections
 		if self.residual:
 			if self.residual_weights:
-				out += tf.tensordot(x, self.kernel_residual, axes=1)
+				out = tf.add(out, tf.tensordot(x, self.kernel_residual, axes=1))
 			else:
-				out += x
+				out = tf.add(out, x)
 		return out

@@ -219,7 +219,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(128, 4, residual=True)
 		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(output_dim, 6, merge_type='avg', residual=True)
 
-	def call(self, inputs, training):
+	def call(self, inputs, training=False):
 		input_features, edges = inputs
 		x = self.attention_layer1([input_features, edges], training=training)
 		x = self.attention_layer2([x, edges], training=training)
@@ -233,9 +233,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 			# forward pass
 			outputs = self(graph, training=True)
 			# compute loss
-			loss = self.compiled_loss(labels, outputs)
-			# add regularization losses
-			loss += tf.reduce_sum(self.losses)
+			loss = self.compiled_loss(labels, outputs, regularization_losses=self.losses)
 		# compute gradients
 		grads = tape.gradient(loss, self.trainable_weights)
 		# apply gradients (update weights)
