@@ -98,8 +98,8 @@ class GraphAttentionNetworkTransductive(keras.Model):
 		super().__init__(**kwargs)
 		self.node_states = node_states
 		self.edges = edges
-		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(8, 8, dropout_rate=0.6, kernel_regularizer=keras.regularizers.L2(5e-4))
-		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(output_dim, 1, dropout_rate=0.6, kernel_regularizer=keras.regularizers.L2(5e-4))
+		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(8, 8, dropout_rate=0.6, kernel_regularizer=keras.regularizers.L2(2.5e-4))
+		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(output_dim, 1, dropout_rate=0.6, kernel_regularizer=keras.regularizers.L2(2.5e-4))
 
 	def call(self, inputs, training):
 		node_states, edges = inputs
@@ -215,15 +215,15 @@ class GraphAttentionNetworkInductive(keras.Model):
 		**kwargs,
 	):
 		super().__init__(**kwargs)
-		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(256, 4)
-		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(256, 4)
-		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(output_dim, 6, merge_type='avg')
+		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(128, 4, residual=True)
+		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(128, 4, residual=True)
+		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(output_dim, 6, merge_type='avg', residual=True)
 
 	def call(self, inputs, training):
-		node_states, adj = inputs
-		x = self.attention_layer1([node_states, adj], training=training)
-		x = self.attention_layer2([x, adj], training=training)
-		outputs = self.attention_layer3([x, adj], training=training)
+		input_features, edges = inputs
+		x = self.attention_layer1([input_features, edges], training=training)
+		x = self.attention_layer2([x, edges], training=training)
+		outputs = self.attention_layer3([x, edges], training=training)
 		return outputs
 
 	def train_step(self, data):
@@ -249,7 +249,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 		# forward pass
 		outputs = self(graph, training=False)
 		# compute probabilities
-		return tf.nn.softmax(outputs)
+		return tf.math.sigmoid(outputs)
 
 	def test_step(self, data):
 		graph, labels = data

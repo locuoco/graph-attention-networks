@@ -40,7 +40,7 @@ train_labels = tf.boolean_mask(labels, train_mask)
 output_dim = tf.math.reduce_max(labels)+1
 
 num_epochs = 500
-batch_size = 512
+batch_size = 64
 learning_rate = 0.005
 
 tf.random.set_seed(1234)
