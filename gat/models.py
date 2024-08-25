@@ -42,6 +42,7 @@ class GraphAttentionNetwork(keras.Model):
 		self.node_states = node_states
 		self.edges = edges
 
+	@tf.function
 	def call(self, inputs):
 		node_states, edges = inputs
 		x = self.preprocess(node_states)
@@ -101,6 +102,7 @@ class GraphAttentionNetworkTransductive(keras.Model):
 		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(8, 8, dropout_rate=0.6, kernel_regularizer=keras.regularizers.L2(2.5e-4))
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(output_dim, 1, dropout_rate=0.6, kernel_regularizer=keras.regularizers.L2(2.5e-4))
 
+	@tf.function
 	def call(self, inputs, training):
 		node_states, edges = inputs
 		x = self.attention_layer1([node_states, edges], training=training)
@@ -165,6 +167,7 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 			kernel_regularizer=keras.regularizers.L2(5e-4),
 		)
 
+	@tf.function
 	def call(self, inputs, training):
 		node_states, edges = inputs
 		x = self.attention_layer1([node_states, edges], training=training)
@@ -219,6 +222,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(128, 4, residual=True)
 		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(output_dim, 6, merge_type='avg', residual=True)
 
+	@tf.function
 	def call(self, inputs, training=False):
 		input_features, edges = inputs
 		x = self.attention_layer1([input_features, edges], training=training)

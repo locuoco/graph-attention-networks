@@ -112,13 +112,11 @@ class MultiHeadGraphAttention(layers.Layer):
 		# (2) normalize attention scores
 		scores = tf.math.exp(scores - tf.gather(tf.math.unsorted_segment_max(scores, targets, n_nodes), targets))
 		# shape = (N,)
-		scores /= tf.gather(tf.math.unsorted_segment_sum(scores, targets, n_nodes), targets)
+		scores /= tf.gather(tf.math.unsorted_segment_sum(scores, targets, n_nodes) + 1e-7, targets)
 		scores = scores[..., None]
 
 		if training:
 			scores = tf.nn.dropout(scores, self.dropout_rate)
-
-		if training:
 			xp = tf.nn.dropout(xp, self.dropout_rate)
 
 		# (3) gather node states of neighbors, apply attention scores and aggregate

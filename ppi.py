@@ -7,6 +7,7 @@ import dgl
 import gat.models
 
 load_last_weights = True
+continue_training = False
 
 val_dataset = dgl.data.PPIDataset(mode='valid')
 test_dataset = dgl.data.PPIDataset(mode='test')
@@ -72,19 +73,20 @@ val_generator = gat.models.DataGenerator(val_graphs, val_labels)
 test_generator = gat.models.DataGenerator(test_graphs, test_labels)
 train_generator = gat.models.DataGenerator(train_graphs, train_labels)
 
-gat_model.fit(
-	train_generator,
-	validation_data=val_generator,
-	epochs=num_epochs,
-	callbacks=[early_stopping],
-	verbose=2,
-)
+if not load_last_weights or continue_training:
+	gat_model.fit(
+		train_generator,
+		validation_data=val_generator,
+		epochs=num_epochs,
+		callbacks=[early_stopping],
+		verbose=2,
+	)
 
 test_loss, test_accuracy, test_f1 = gat_model.evaluate(test_generator, verbose=0)
 
 gat_model.save_weights(weightsfile)
 
-print('--'*38 + f'\nTest loss: {test_loss:.5f}, accuracy: {test_accuracy*100:.1f}%, F1 score: {test_f1*100:.1f}%')
+print('--'*38 + f'\nTest loss: {test_loss:.4f}, accuracy: {test_accuracy*100:.1f}%, F1 score: {test_f1*100:.1f}%')
 
 
 
