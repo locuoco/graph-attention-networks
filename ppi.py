@@ -1,11 +1,10 @@
 import os
-import tensorflow as tf
 import keras
 import dgl
 
 import gat.models
 
-load_last_weights = True
+load_last_weights = False
 continue_training = False
 
 val_dataset = dgl.data.PPIDataset(mode='valid')
@@ -23,7 +22,7 @@ mode_labels = [val_labels, test_labels, train_labels]
 for i, dataset in enumerate(mode_datasets):
 	for graph in dataset:
 		# get edges
-		edges = tf.transpose(tf.convert_to_tensor(graph.edges(), dtype=tf.int32))
+		edges = keras.ops.transpose(keras.ops.convert_to_tensor(graph.edges(), dtype='int32'))
 
 		# get node features
 		features = graph.ndata['feat']
@@ -36,7 +35,7 @@ for i, dataset in enumerate(mode_datasets):
 # train and evalate
 
 # define hyper-parameters
-output_dim = tf.shape(train_labels[0])[-1].numpy()
+output_dim = keras.ops.shape(train_labels[0])[-1].numpy()
 
 num_epochs = 2000
 batch_size = 1 # number of graphs per batch
@@ -46,7 +45,7 @@ keras.utils.set_random_seed(1234)
 
 loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate)
-accuracy_fn = tf.metrics.BinaryAccuracy(name='acc')
+accuracy_fn = keras.metrics.BinaryAccuracy(name='acc')
 f1_fn = keras.metrics.F1Score(average='micro', threshold=0.5, name='f1_score')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_f1_score',

@@ -1,4 +1,3 @@
-import tensorflow as tf
 import keras
 import dgl
 
@@ -6,38 +5,38 @@ import gat.models
 
 dataset = dgl.data.CiteseerGraphDataset()
 graph = dataset[0]
-nodes_indices = graph.nodes()
-edges = tf.transpose(tf.convert_to_tensor(graph.edges()))
+nodes_indices = keras.ops.convert_to_tensor(graph.nodes())
+edges = keras.ops.transpose(keras.ops.convert_to_tensor(graph.edges()))
 
 print('Edges shape:', edges.shape)
 
 # get split masks
-val_mask = graph.ndata['val_mask']
-test_mask = graph.ndata['test_mask']
-train_mask = graph.ndata['train_mask']
+val_mask = keras.ops.convert_to_tensor(graph.ndata['val_mask'])
+test_mask = keras.ops.convert_to_tensor(graph.ndata['test_mask'])
+train_mask = keras.ops.convert_to_tensor(graph.ndata['train_mask'])
 
 # get split indices
-val_indices = tf.boolean_mask(nodes_indices, val_mask)
-test_indices = tf.boolean_mask(nodes_indices, test_mask)
-train_indices = tf.boolean_mask(nodes_indices, train_mask)
+val_indices = nodes_indices[val_mask]
+test_indices = nodes_indices[test_mask]
+train_indices = nodes_indices[train_mask]
 
 # get node features
-features = graph.ndata['feat']
+features = keras.ops.convert_to_tensor(graph.ndata['feat'])
 
 print('Node features shape:', features.shape)
 
 # get ground-truth labels
-labels = graph.ndata['label']
+labels = keras.ops.convert_to_tensor(graph.ndata['label'])
 
 # get split ground-truths
-val_labels = tf.boolean_mask(labels, val_mask)
-test_labels = tf.boolean_mask(labels, test_mask)
-train_labels = tf.boolean_mask(labels, train_mask)
+val_labels = labels[val_mask]
+test_labels = labels[test_mask]
+train_labels = labels[train_mask]
 
 # train and evalate
 
 # define hyper-parameters
-output_dim = tf.math.reduce_max(labels)+1
+output_dim = keras.ops.amax(labels)+1
 
 num_epochs = 1000
 batch_size = 512

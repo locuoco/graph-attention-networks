@@ -57,11 +57,11 @@ class GraphAttentionNetworkTransductive(keras.Model):
 
 		with tf.GradientTape() as tape:
 			# forward pass
-			outputs = tf.gather(self((self.node_states, self.edges), training=True), indices)
+			outputs = keras.ops.take(self((self.node_states, self.edges), training=True), indices, axis=0)
 			# compute loss
 			loss = self.compute_loss(y=labels, y_pred=outputs)
 			# add regularization losses
-			loss += tf.reduce_sum(self.losses)
+			loss += keras.ops.sum(self.losses)
 		# compute gradients
 		grads = tape.gradient(loss, self.trainable_weights)
 		# apply gradients (update weights)
@@ -78,14 +78,14 @@ class GraphAttentionNetworkTransductive(keras.Model):
 	def predict_step(self, data):
 		indices = data
 		# forward pass
-		outputs = tf.gather(self((self.node_states, self.edges), training=False), indices)
+		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
 		# compute probabilities
-		return tf.nn.softmax(outputs)
+		return keras.ops.softmax(outputs)
 
 	def test_step(self, data):
 		indices, labels = data
 		# forward pass
-		outputs = tf.gather(self((self.node_states, self.edges), training=False), indices)
+		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
 		# compute loss
 		loss = self.compute_loss(y=labels, y_pred=outputs)
 		# update metric(s)
@@ -139,11 +139,11 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 
 		with tf.GradientTape() as tape:
 			# forward pass
-			outputs = tf.gather(self((self.node_states, self.edges), training=True), indices)
+			outputs = keras.ops.take(self((self.node_states, self.edges), training=True), indices, axis=0)
 			# compute loss
 			loss = self.compute_loss(y=labels, y_pred=outputs)
 			# add regularization losses
-			loss += tf.reduce_sum(self.losses)
+			loss += keras.ops.sum(self.losses)
 		# compute gradients
 		grads = tape.gradient(loss, self.trainable_weights)
 		# apply gradients (update weights)
@@ -160,14 +160,14 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 	def predict_step(self, data):
 		indices = data
 		# forward pass
-		outputs = tf.gather(self((self.node_states, self.edges), training=False), indices)
+		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
 		# compute probabilities
-		return tf.nn.softmax(outputs)
+		return keras.ops.softmax(outputs)
 
 	def test_step(self, data):
 		indices, labels = data
 		# forward pass
-		outputs = tf.gather(self((self.node_states, self.edges), training=False), indices)
+		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
 		# compute loss
 		loss = self.compute_loss(y=labels, y_pred=outputs)
 		# update metric(s)
@@ -209,7 +209,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 			# compute loss
 			loss = self.compute_loss(y=labels, y_pred=outputs)
 			# add regularization losses
-			loss += tf.reduce_sum(self.losses)
+			loss += keras.ops.sum(self.losses)
 		# compute gradients
 		grads = tape.gradient(loss, self.trainable_weights)
 		# apply gradients (update weights)
@@ -227,7 +227,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 		# forward pass
 		outputs = self(graph, training=False)
 		# compute probabilities
-		return tf.math.sigmoid(outputs)
+		return keras.ops.sigmoid(outputs)
 
 	def test_step(self, data):
 		graph, labels = data

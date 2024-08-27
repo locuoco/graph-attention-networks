@@ -1,4 +1,3 @@
-import tensorflow as tf
 import keras
 from keras import layers
 
@@ -12,7 +11,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		units,
 		num_heads=8,
 		merge_type='concat',
-		activation=tf.nn.elu,
+		activation=keras.ops.elu,
 		dropout_rate=0,
 		kernel_initializer='glorot_normal',
 		kernel_regularizer=None,
@@ -84,7 +83,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		x, edges = inputs
 		targets, sources = edges[:, 1], edges[:, 0]
 
-		n_nodes = tf.shape(x)[-2]
+		n_nodes = keras.ops.shape(x)[-2]
 
 		#  x shape = (N, F)
 		#  edges shape = (E, 2)
@@ -94,53 +93,53 @@ class MultiHeadGraphAttention(layers.Layer):
 		# linearly transform node states and apply dropout
 		if training and self.dropout_rate > 0:
 			if self.repeat:
-				kernel = tf.reshape(self.kernel, (-1, self.num_heads, self.units))
+				kernel = keras.ops.reshape(self.kernel, (-1, self.num_heads, self.units))
 				x_head = []
 				for i in range(self.num_heads):
-					xp = tf.nn.dropout(x, self.dropout_rate)
-					x_head.append(tf.tensordot(xp, tf.gather(kernel, i, axis=1), axes=1))
-				xp = tf.concat(x_head, axis=-1)
+					xp = keras.random.dropout(x, self.dropout_rate)
+					x_head.append(keras.ops.tensordot(xp, keras.ops.take(kernel, i, axis=1), axes=1))
+				xp = keras.ops.concatenate(x_head, axis=-1)
 			else:
-				xp = tf.nn.dropout(x, self.dropout_rate)
-				xp = tf.tensordot(xp, self.kernel, axes=1)
+				xp = keras.random.dropout(x, self.dropout_rate)
+				xp = keras.ops.tensordot(xp, self.kernel, axes=1)
 		else:
-			xp = tf.tensordot(x, self.kernel, axes=1)
+			xp = keras.ops.tensordot(x, self.kernel, axes=1)
 		# shape = (N, H F'), where F' = self.units is the number of output features for each node
 
-		xp = tf.reshape(xp, (-1, self.num_heads, self.units))
+		xp = keras.ops.reshape(xp, (-1, self.num_heads, self.units))
 		# shape = (N, H, F')
 
 		# (1) compute pair-wise attention scores
-		f_t = tf.reduce_sum(xp * self.kernel_attention1, -1)
-		f_s = tf.reduce_sum(xp * self.kernel_attention2, -1)
-		f_t = tf.gather(f_t, targets)
-		f_s = tf.gather(f_s, sources)
-		scores = tf.nn.leaky_relu(f_t + f_s)
+		f_t = keras.ops.sum(xp * self.kernel_attention1, -1)
+		f_s = keras.ops.sum(xp * self.kernel_attention2, -1)
+		f_t = keras.ops.take(f_t, targets, axis=0)
+		f_s = keras.ops.take(f_s, sources, axis=0)
+		scores = keras.ops.leaky_relu(f_t + f_s)
 		# shape = (E, H, F')
 
 		# (2) normalize attention scores
-		scores = tf.math.exp(scores - tf.gather(tf.math.unsorted_segment_max(scores, targets, n_nodes), targets))
+		scores = keras.ops.exp(scores - keras.ops.take(keras.ops.segment_max(scores, targets, n_nodes), targets, axis=0))
 		# shape = (N,)
-		scores /= tf.gather(tf.math.unsorted_segment_sum(scores, targets, n_nodes) + 1e-7, targets)
+		scores /= keras.ops.take(keras.ops.segment_sum(scores, targets, n_nodes) + 1e-7, targets, axis=0)
 		scores = scores[..., None]
 
 		if training and self.dropout_rate > 0:
-			scores = tf.nn.dropout(scores, self.dropout_rate)
-			xp = tf.nn.dropout(xp, self.dropout_rate)
+			scores = keras.random.dropout(scores, self.dropout_rate)
+			xp = keras.random.dropout(xp, self.dropout_rate)
 
 		# (3) gather node states of neighbors, apply attention scores and aggregate
-		out = scores * tf.gather(xp, sources)
+		out = scores * keras.ops.take(xp, sources, axis=0)
 		# shape = (E, F')
-		out = tf.math.unsorted_segment_sum(out, targets, n_nodes)
+		out = keras.ops.segment_sum(out, targets, n_nodes)
 		# concatenate or average the node states from each head
 		if self.merge_type == 'concat':
-			out = tf.reshape(out, (-1, self.num_heads * self.units))
+			out = keras.ops.reshape(out, (-1, self.num_heads * self.units))
 		else:
-			out = tf.reduce_mean(out, axis=-2)
+			out = keras.ops.mean(out, axis=-2)
 		# residual (skip) connections
 		if self.residual:
 			if self.residual_weights:
-				out = tf.add(out, tf.tensordot(x, self.kernel_residual, axes=1))
+				out = keras.ops.add(out, keras.ops.tensordot(x, self.kernel_residual, axes=1))
 			else:
-				out = tf.add(out, x)
+				out = keras.ops.add(out, x)
 		return out
