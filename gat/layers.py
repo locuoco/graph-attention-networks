@@ -1,6 +1,6 @@
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+import keras
+from keras import layers
 
 class MultiHeadGraphAttention(layers.Layer):
 	'''
@@ -17,9 +17,10 @@ class MultiHeadGraphAttention(layers.Layer):
 		kernel_initializer='glorot_normal',
 		kernel_regularizer=None,
 		residual=False,
+		repeat=False,
 		**kwargs,
 	):
-		super().__init__(**kwargs)
+		super(MultiHeadGraphAttention, self).__init__(**kwargs)
 		self.units = units
 		self.num_heads = num_heads
 		self.merge_type = merge_type
@@ -28,6 +29,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		self.kernel_initializer = keras.initializers.get(kernel_initializer)
 		self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
 		self.residual = residual
+		self.repeat = repeat
 		if merge_type == 'concat':
 			self.output_dim = units * num_heads
 		else:
@@ -38,7 +40,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		#  kernel shape = (F, F'),
 		# where F is the number of input features per node and F' is the number of output features per node
 		self.kernel = self.add_weight(
-			shape=(input_dim, self.num_heads*self.units),
+			shape=(input_dim, self.units*self.num_heads),
 			initializer=self.kernel_initializer,
 			regularizer=self.kernel_regularizer,
 			name='kernel',
@@ -70,15 +72,14 @@ class MultiHeadGraphAttention(layers.Layer):
 			)
 		else:
 			self.residual_weights = False
+		super(MultiHeadGraphAttention, self).build(input_shape)
 		self.built = True
 
-	@tf.function
 	def call(self, inputs, training):
 		output = self.call_sparse_edges_(inputs, training)
 		# activate and return node states
 		return self.activation(output + self.bias)
 
-	@tf.function
 	def call_sparse_edges_(self, inputs, training):
 		x, edges = inputs
 		targets, sources = edges[:, 1], edges[:, 0]
@@ -90,14 +91,22 @@ class MultiHeadGraphAttention(layers.Layer):
 		# where N is the total number of nodes, F is the number of input features for each node
 		# and E is the total number of graph edges
 
-		if training:
-			xp = tf.nn.dropout(x, self.dropout_rate)
+		# linearly transform node states and apply dropout
+		if training and self.dropout_rate > 0:
+			if self.repeat:
+				kernel = tf.reshape(self.kernel, (-1, self.num_heads, self.units))
+				x_head = []
+				for i in range(self.num_heads):
+					xp = tf.nn.dropout(x, self.dropout_rate)
+					x_head.append(tf.tensordot(xp, tf.gather(kernel, i, axis=1), axes=1))
+				xp = tf.concat(x_head, axis=-1)
+			else:
+				xp = tf.nn.dropout(x, self.dropout_rate)
+				xp = tf.tensordot(xp, self.kernel, axes=1)
 		else:
-			xp = x
-
-		# linearly transform node states
-		xp = tf.tensordot(xp, self.kernel, axes=1)
+			xp = tf.tensordot(x, self.kernel, axes=1)
 		# shape = (N, H F'), where F' = self.units is the number of output features for each node
+
 		xp = tf.reshape(xp, (-1, self.num_heads, self.units))
 		# shape = (N, H, F')
 
@@ -115,7 +124,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		scores /= tf.gather(tf.math.unsorted_segment_sum(scores, targets, n_nodes) + 1e-7, targets)
 		scores = scores[..., None]
 
-		if training:
+		if training and self.dropout_rate > 0:
 			scores = tf.nn.dropout(scores, self.dropout_rate)
 			xp = tf.nn.dropout(xp, self.dropout_rate)
 
@@ -125,8 +134,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		out = tf.math.unsorted_segment_sum(out, targets, n_nodes)
 		# concatenate or average the node states from each head
 		if self.merge_type == 'concat':
-			shape = tf.concat((tf.shape(out)[:-2], [self.num_heads * self.units]), axis=0)
-			out = tf.reshape(out, shape)
+			out = tf.reshape(out, (-1, self.num_heads * self.units))
 		else:
 			out = tf.reduce_mean(out, axis=-2)
 		# residual (skip) connections

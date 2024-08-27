@@ -1,7 +1,6 @@
 import os
 import tensorflow as tf
-from tensorflow import keras
-import tensorflow_addons as tfa
+import keras
 import dgl
 
 import gat.models
@@ -32,26 +31,25 @@ for i, dataset in enumerate(mode_datasets):
 		# get ground-truth labels
 		mode_labels[i].append(graph.ndata['label'])
 
-		mode_graphs[i].append([features, edges])
+		mode_graphs[i].append((features, edges))
 
 # train and evalate
 
 # define hyper-parameters
-output_dim = tf.shape(train_labels[0])[-1]
+output_dim = tf.shape(train_labels[0])[-1].numpy()
 
-num_epochs = 1000
+num_epochs = 2000
 batch_size = 1 # number of graphs per batch
 learning_rate = 0.005
 
-tf.random.set_seed(1234)
+keras.utils.set_random_seed(1234)
 
 loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate)
 accuracy_fn = tf.metrics.BinaryAccuracy(name='acc')
-f1_fn = tfa.metrics.F1Score(num_classes=output_dim, average='micro', threshold=0.5, name='f1_score')
+f1_fn = keras.metrics.F1Score(average='micro', threshold=0.5, name='f1_score')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_f1_score',
-	min_delta=1e-5,
 	patience=100,
 	mode='max',
 	restore_best_weights=True

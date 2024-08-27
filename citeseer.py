@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow import keras
+import keras
 import dgl
 
 import gat.models
@@ -39,25 +39,24 @@ train_labels = tf.boolean_mask(labels, train_mask)
 # define hyper-parameters
 output_dim = tf.math.reduce_max(labels)+1
 
-num_epochs = 500
-batch_size = 64
+num_epochs = 1000
+batch_size = 512
 learning_rate = 0.005
 
-tf.random.set_seed(1234)
+keras.utils.set_random_seed(1234)
 
 loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate)
 accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_acc',
-	min_delta=1e-5,
 	patience=100,
 	restore_best_weights=True
 )
 
 # build model
 gat_model = gat.models.GraphAttentionNetworkTransductive(
-	features, edges, output_dim
+	features, edges, output_dim.numpy()
 )
 
 # compile model
