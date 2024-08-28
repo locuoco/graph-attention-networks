@@ -15,6 +15,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		dropout_rate=0,
 		kernel_initializer='glorot_normal',
 		kernel_regularizer=None,
+		random_gen=keras.random.SeedGenerator(),
 		residual=False,
 		repeat=False,
 		**kwargs,
@@ -27,6 +28,7 @@ class MultiHeadGraphAttention(layers.Layer):
 		self.dropout_rate = dropout_rate
 		self.kernel_initializer = keras.initializers.get(kernel_initializer)
 		self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
+		self.random_gen = random_gen
 		self.residual = residual
 		self.repeat = repeat
 		if merge_type == 'concat':
@@ -96,11 +98,11 @@ class MultiHeadGraphAttention(layers.Layer):
 				kernel = keras.ops.reshape(self.kernel, (-1, self.num_heads, self.units))
 				x_head = []
 				for i in range(self.num_heads):
-					xp = keras.random.dropout(x, self.dropout_rate)
+					xp = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
 					x_head.append(keras.ops.tensordot(xp, keras.ops.take(kernel, i, axis=1), axes=1))
 				xp = keras.ops.concatenate(x_head, axis=-1)
 			else:
-				xp = keras.random.dropout(x, self.dropout_rate)
+				xp = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
 				xp = keras.ops.tensordot(xp, self.kernel, axes=1)
 		else:
 			xp = keras.ops.tensordot(x, self.kernel, axes=1)
@@ -124,8 +126,8 @@ class MultiHeadGraphAttention(layers.Layer):
 		scores = scores[..., None]
 
 		if training and self.dropout_rate > 0:
-			scores = keras.random.dropout(scores, self.dropout_rate)
-			xp = keras.random.dropout(xp, self.dropout_rate)
+			scores = keras.random.dropout(scores, self.dropout_rate, seed=self.random_gen)
+			xp = keras.random.dropout(xp, self.dropout_rate, seed=self.random_gen)
 
 		# (3) gather node states of neighbors, apply attention scores and aggregate
 		out = scores * keras.ops.take(xp, sources, axis=0)

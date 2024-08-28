@@ -36,13 +36,14 @@ train_labels = labels[train_mask]
 # train and evalate
 
 # define hyper-parameters
-output_dim = keras.ops.amax(labels)+1
+output_dim = int(keras.ops.amax(labels))+1
 
 num_epochs = 1000
 batch_size = 512
 learning_rate = 0.01
 
 keras.utils.set_random_seed(1234)
+random_gen = keras.random.SeedGenerator(1234)
 
 loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate)
@@ -55,7 +56,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 
 # build model
 gat_model = gat.models.GraphAttentionNetworkTransductive2(
-	features, edges, output_dim.numpy()
+	features, edges, output_dim, random_gen
 )
 
 # compile model

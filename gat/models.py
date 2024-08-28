@@ -1,11 +1,8 @@
-import tensorflow as tf
 import keras
-from keras import layers
-from keras.utils import Sequence
 
 import gat.layers
 
-class DataGenerator(Sequence):
+class DataGenerator(keras.utils.PyDataset):
 	def __init__(self, data, labels, **kwargs):
 		super().__init__(**kwargs)
 		self.data = data
@@ -23,6 +20,7 @@ class GraphAttentionNetworkTransductive(keras.Model):
 		node_states,
 		edges,
 		output_dim,
+		random_gen=keras.random.SeedGenerator(),
 		**kwargs,
 	):
 		super().__init__(**kwargs)
@@ -33,6 +31,7 @@ class GraphAttentionNetworkTransductive(keras.Model):
 			8,
 			dropout_rate=0.6,
 			kernel_regularizer=keras.regularizers.L2(2.5e-4),
+			random_gen=random_gen,
 			repeat=True,
 		)
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(
@@ -40,62 +39,13 @@ class GraphAttentionNetworkTransductive(keras.Model):
 			1,
 			dropout_rate=0.6,
 			kernel_regularizer=keras.regularizers.L2(2.5e-4),
-			repeat=True,
+			random_gen=random_gen,
 		)
 
-	def build(self, input_shape):
-		self.built = True
-
-	def call(self, inputs, training):
-		node_states, edges = inputs
-		x = self.attention_layer1((node_states, edges), training=training)
-		outputs = self.attention_layer2((x, edges), training=training)
-		return outputs
-
-	def train_step(self, data):
-		indices, labels = data
-
-		with tf.GradientTape() as tape:
-			# forward pass
-			outputs = keras.ops.take(self((self.node_states, self.edges), training=True), indices, axis=0)
-			# compute loss
-			loss = self.compute_loss(y=labels, y_pred=outputs)
-			# add regularization losses
-			loss += keras.ops.sum(self.losses)
-		# compute gradients
-		grads = tape.gradient(loss, self.trainable_weights)
-		# apply gradients (update weights)
-		self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
-		# update metric(s)
-		for metric in self.metrics:
-			if metric.name == 'loss':
-				metric.update_state(loss)
-			else:
-				metric.update_state(labels, outputs)
-
-		return {m.name: m.result() for m in self.metrics}
-
-	def predict_step(self, data):
-		indices = data
-		# forward pass
-		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
-		# compute probabilities
-		return keras.ops.softmax(outputs)
-
-	def test_step(self, data):
-		indices, labels = data
-		# forward pass
-		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
-		# compute loss
-		loss = self.compute_loss(y=labels, y_pred=outputs)
-		# update metric(s)
-		for metric in self.metrics:
-			if metric.name == 'loss':
-				metric.update_state(loss)
-			else:
-				metric.update_state(labels, outputs)
-
-		return {m.name: m.result() for m in self.metrics}
+	def call(self, indices, training=False):
+		x = self.attention_layer1((self.node_states, self.edges), training=training)
+		outputs = self.attention_layer2((x, self.edges), training=training)
+		return keras.ops.take(outputs, indices, axis=0)
 
 class GraphAttentionNetworkTransductive2(keras.Model):
 	# Variant of the previous model, used for Pubmed dataset
@@ -104,6 +54,7 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 		node_states,
 		edges,
 		output_dim,
+		random_gen=keras.random.SeedGenerator(),
 		**kwargs,
 	):
 		super().__init__(**kwargs)
@@ -114,6 +65,7 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 			8,
 			dropout_rate=0.5,
 			kernel_regularizer=keras.regularizers.L2(5e-4),
+			random_gen=random_gen,
 			repeat=True,
 		)
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(
@@ -122,76 +74,26 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 			merge_type='avg',
 			dropout_rate=0.5,
 			kernel_regularizer=keras.regularizers.L2(5e-4),
+			random_gen=random_gen,
 			repeat=True,
 		)
 
-	def build(self, input_shape):
-		self.built = True
-
-	def call(self, inputs, training):
-		node_states, edges = inputs
-		x = self.attention_layer1((node_states, edges), training=training)
-		outputs = self.attention_layer2((x, edges), training=training)
-		return outputs
-
-	def train_step(self, data):
-		indices, labels = data
-
-		with tf.GradientTape() as tape:
-			# forward pass
-			outputs = keras.ops.take(self((self.node_states, self.edges), training=True), indices, axis=0)
-			# compute loss
-			loss = self.compute_loss(y=labels, y_pred=outputs)
-			# add regularization losses
-			loss += keras.ops.sum(self.losses)
-		# compute gradients
-		grads = tape.gradient(loss, self.trainable_weights)
-		# apply gradients (update weights)
-		self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
-		# update metric(s)
-		for metric in self.metrics:
-			if metric.name == 'loss':
-				metric.update_state(loss)
-			else:
-				metric.update_state(labels, outputs)
-
-		return {m.name: m.result() for m in self.metrics}
-
-	def predict_step(self, data):
-		indices = data
-		# forward pass
-		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
-		# compute probabilities
-		return keras.ops.softmax(outputs)
-
-	def test_step(self, data):
-		indices, labels = data
-		# forward pass
-		outputs = keras.ops.take(self((self.node_states, self.edges), training=False), indices, axis=0)
-		# compute loss
-		loss = self.compute_loss(y=labels, y_pred=outputs)
-		# update metric(s)
-		for metric in self.metrics:
-			if metric.name == 'loss':
-				metric.update_state(loss)
-			else:
-				metric.update_state(labels, outputs)
-
-		return {m.name: m.result() for m in self.metrics}
+	def call(self, indices, training=False):
+		x = self.attention_layer1((self.node_states, self.edges), training=training)
+		outputs = self.attention_layer2((x, self.edges), training=training)
+		return keras.ops.take(outputs, indices, axis=0)
 
 class GraphAttentionNetworkInductive(keras.Model):
 	def __init__(
 		self,
 		output_dim,
+		random_gen=keras.random.SeedGenerator(),
 		**kwargs,
 	):
 		super().__init__(**kwargs)
-		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(128, 4, residual=True)
-		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(128, 4, residual=True)
-		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(output_dim, 6, merge_type='avg', residual=True)
-
-	def build(self, input_shape):
-		self.built = True
+		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(128, 4, random_gen=random_gen, residual=True)
+		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(128, 4, random_gen=random_gen, residual=True)
+		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(output_dim, 6, random_gen=random_gen, residual=True, merge_type='avg')
 
 	def call(self, inputs, training=False):
 		input_features, edges = inputs
@@ -199,48 +101,4 @@ class GraphAttentionNetworkInductive(keras.Model):
 		x = self.attention_layer2((x, edges), training=training)
 		outputs = self.attention_layer3((x, edges), training=training)
 		return outputs
-
-	def train_step(self, data):
-		graph, labels = data
-
-		with tf.GradientTape() as tape:
-			# forward pass
-			outputs = self(graph, training=True)
-			# compute loss
-			loss = self.compute_loss(y=labels, y_pred=outputs)
-			# add regularization losses
-			loss += keras.ops.sum(self.losses)
-		# compute gradients
-		grads = tape.gradient(loss, self.trainable_weights)
-		# apply gradients (update weights)
-		self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
-		# update metric(s)
-		for metric in self.metrics:
-			if metric.name == 'loss':
-				metric.update_state(loss)
-			else:
-				metric.update_state(labels, outputs)
-
-		return {m.name: m.result() for m in self.metrics}
-
-	def predict_step(self, graph):
-		# forward pass
-		outputs = self(graph, training=False)
-		# compute probabilities
-		return keras.ops.sigmoid(outputs)
-
-	def test_step(self, data):
-		graph, labels = data
-		# forward pass
-		outputs = self(graph, training=False)
-		# compute loss
-		loss = self.compute_loss(y=labels, y_pred=outputs)
-		# update metric(s)
-		for metric in self.metrics:
-			if metric.name == 'loss':
-				metric.update_state(loss)
-			else:
-				metric.update_state(labels, outputs)
-
-		return {m.name: m.result() for m in self.metrics}
 

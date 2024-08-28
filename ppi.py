@@ -4,7 +4,7 @@ import dgl
 
 import gat.models
 
-load_last_weights = False
+load_last_weights = True
 continue_training = False
 
 val_dataset = dgl.data.PPIDataset(mode='valid')
@@ -35,13 +35,14 @@ for i, dataset in enumerate(mode_datasets):
 # train and evalate
 
 # define hyper-parameters
-output_dim = keras.ops.shape(train_labels[0])[-1].numpy()
+output_dim = int(keras.ops.shape(train_labels[0])[-1])
 
 num_epochs = 2000
 batch_size = 1 # number of graphs per batch
 learning_rate = 0.005
 
 keras.utils.set_random_seed(1234)
+random_gen = keras.random.SeedGenerator(1234)
 
 loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate)
@@ -55,7 +56,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 )
 
 # build model
-gat_model = gat.models.GraphAttentionNetworkInductive(output_dim)
+gat_model = gat.models.GraphAttentionNetworkInductive(output_dim, random_gen)
 
 # compile model
 gat_model.compile(loss=loss_fn, optimizer=optimizer, metrics=[accuracy_fn, f1_fn])
