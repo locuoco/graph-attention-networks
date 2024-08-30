@@ -46,7 +46,7 @@ keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
 loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-optimizer = keras.optimizers.Adam(learning_rate)
+optimizer = keras.optimizers.Lion(learning_rate)
 accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_acc',

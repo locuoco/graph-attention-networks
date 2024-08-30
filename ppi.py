@@ -50,7 +50,7 @@ accuracy_fn = keras.metrics.BinaryAccuracy(name='acc')
 f1_fn = keras.metrics.F1Score(average='micro', threshold=0.5, name='f1_score')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_f1_score',
-	patience=100,
+	patience=200,
 	mode='max',
 	restore_best_weights=True
 )
