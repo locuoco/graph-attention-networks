@@ -32,6 +32,7 @@ class GraphAttentionNetworkTransductive(keras.Model):
 			dropout_rate=0.6,
 			kernel_regularizer=keras.regularizers.L2(2.5e-4),
 			random_gen=random_gen,
+			use_v2=True,
 			repeat=True,
 		)
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(
@@ -40,6 +41,7 @@ class GraphAttentionNetworkTransductive(keras.Model):
 			dropout_rate=0.6,
 			kernel_regularizer=keras.regularizers.L2(2.5e-4),
 			random_gen=random_gen,
+			use_v2=True,
 		)
 
 	def call(self, indices, training=False):
@@ -64,10 +66,9 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 			8,
 			8,
 			dropout_rate=0.6,
-			kernel_regularizer=keras.regularizers.L2(5e-4),
+			kernel_regularizer=keras.regularizers.L2(1e-3),
 			random_gen=random_gen,
 			use_v2=True,
-			residual=True,
 			repeat=True,
 		)
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(
@@ -75,10 +76,8 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 			8,
 			merge_type='avg',
 			dropout_rate=0.5,
-			kernel_regularizer=keras.regularizers.L2(5e-4),
 			random_gen=random_gen,
 			use_v2=True,
-			residual=True,
 			repeat=True,
 		)
 
@@ -95,13 +94,13 @@ class GraphAttentionNetworkInductive(keras.Model):
 		**kwargs,
 	):
 		super().__init__(**kwargs)
-		self.head_layer = keras.layers.Dense(512)
+		self.head_layer = keras.layers.Dense(1024)
 		self.norm1 = keras.layers.LayerNormalization()
-		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(128, 4, random_gen=random_gen, residual=True)
+		self.attention_layer1 = gat.layers.MultiHeadGraphAttention(256, 4, dropout_rate=0.2, random_gen=random_gen, use_v2=True, residual=True)
 		self.norm2 = keras.layers.LayerNormalization()
-		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(128, 4, random_gen=random_gen, residual=True)
+		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(256, 4, dropout_rate=0.2, random_gen=random_gen, use_v2=True, residual=True)
 		self.norm3 = keras.layers.LayerNormalization()
-		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(128, 4, random_gen=random_gen, residual=True)
+		self.attention_layer3 = gat.layers.MultiHeadGraphAttention(256, 4, dropout_rate=0.2, random_gen=random_gen, use_v2=True, residual=True)
 		self.tail_layer = keras.layers.Dense(output_dim)
 
 	def call(self, inputs, training=False):

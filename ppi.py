@@ -6,6 +6,7 @@ import gat.models
 
 load_last_weights = True
 continue_training = False
+initial_epoch = 0
 
 val_dataset = dgl.data.PPIDataset(mode='valid')
 test_dataset = dgl.data.PPIDataset(mode='test')
@@ -37,9 +38,9 @@ for i, dataset in enumerate(mode_datasets):
 # define hyper-parameters
 output_dim = int(keras.ops.shape(train_labels[0])[-1])
 
-num_epochs = 2000
-batch_size = 1 # number of graphs per batch
-learning_rate = 0.005
+num_epochs = 10000
+#batch_size = 1 # number of graphs per batch
+learning_rate = 0.001
 
 keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
@@ -78,13 +79,14 @@ if not load_last_weights or continue_training:
 		epochs=num_epochs,
 		callbacks=[early_stopping],
 		verbose=2,
+		initial_epoch=initial_epoch,
 	)
 
 test_loss, test_accuracy, test_f1 = gat_model.evaluate(test_generator, verbose=0)
 
 gat_model.save_weights(weightsfile)
 
-print('--'*38 + f'\nTest loss: {test_loss:.4f}, accuracy: {test_accuracy*100:.1f}%, F1 score: {test_f1*100:.1f}%')
+print('--'*38 + f'\nTest loss: {test_loss:.4f}, accuracy: {test_accuracy*100:.3f}%, F1 score: {test_f1*100:.3f}%')
 
 
 

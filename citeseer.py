@@ -49,7 +49,7 @@ loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 optimizer = keras.optimizers.Adam(learning_rate)
 accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
 early_stopping = keras.callbacks.EarlyStopping(
-	monitor='val_acc',
+	monitor='val_loss',
 	patience=100,
 	restore_best_weights=True
 )

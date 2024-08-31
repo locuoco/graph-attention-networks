@@ -12,7 +12,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		num_heads=8,
 		merge_type='concat',
 		activation=keras.ops.elu,
-		dropout_rate=0,
+		dropout_rate=0, # Srivastava et al., 2014
 		kernel_initializer='glorot_normal',
 		kernel_regularizer=None,
 		random_gen=keras.random.SeedGenerator(),
@@ -45,7 +45,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		#  kernel shape = (F, F'),
 		# where F is the number of input features per node and F' is the number of output features per node
 		self.kernel = self.add_weight(
-			shape=(input_dim, self.units*self.num_heads),
+			shape=(input_dim, self.num_heads, self.units),
 			initializer=self.kernel_initializer,
 			regularizer=self.kernel_regularizer,
 			name='kernel',
@@ -109,19 +109,17 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		# linearly transform node states and apply dropout
 		if training and self.dropout_rate > 0:
 			if self.repeat:
-				kernel = keras.ops.reshape(self.kernel, (-1, self.num_heads, self.units))
 				x_head = []
 				for i in range(self.num_heads):
 					xp = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
-					x_head.append(keras.ops.tensordot(xp, keras.ops.take(kernel, i, axis=1), axes=1))
-				xp = keras.ops.concatenate(x_head, axis=-1)
+					xp = keras.ops.tensordot(xp, keras.ops.take(self.kernel, i, axis=1), axes=1)
+					x_head.append(keras.ops.expand_dims(xp, axis=-2))
+				xp = keras.ops.concatenate(x_head, axis=-2)
 			else:
 				xp = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
 				xp = keras.ops.tensordot(xp, self.kernel, axes=1)
 		else:
 			xp = keras.ops.tensordot(x, self.kernel, axes=1)
-		# shape = (N, H F'), where F' = self.units is the number of output features for each node
-		xp = keras.ops.reshape(xp, (-1, self.num_heads, self.units))
 		# shape = (N, H, F')
 
 		if self.use_v2 and self.use_bias:
