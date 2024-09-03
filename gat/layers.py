@@ -11,7 +11,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		units,
 		num_heads=8,
 		merge_type='concat',
-		activation=keras.ops.elu,
+		activation=keras.ops.gelu,
 		dropout_rate=0, # Srivastava et al., 2014
 		kernel_initializer='glorot_normal',
 		kernel_regularizer=None,

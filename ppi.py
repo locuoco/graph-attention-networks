@@ -1,4 +1,8 @@
 import os
+
+# Set environment variables for JAX memory limits
+os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.9'
+
 import keras
 import dgl
 
