@@ -8,7 +8,7 @@ import dgl
 
 import gat.models
 
-load_last_weights = True
+load_last_weights = False
 continue_training = False
 initial_epoch = 0
 
@@ -37,7 +37,7 @@ for i, dataset in enumerate(mode_datasets):
 
 		mode_graphs[i].append((features, edges))
 
-# train and evalate
+# train and evaluate
 
 # define hyper-parameters
 output_dim = int(keras.ops.shape(train_labels[0])[-1])

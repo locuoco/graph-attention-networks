@@ -33,7 +33,7 @@ val_labels = labels[val_mask]
 test_labels = labels[test_mask]
 train_labels = labels[train_mask]
 
-# train and evalate
+# train and evaluate
 
 # define hyper-parameters
 output_dim = int(keras.ops.amax(labels))+1
