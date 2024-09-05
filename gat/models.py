@@ -92,32 +92,51 @@ class GraphAttentionNetworkInductive(keras.Model):
 	def __init__(
 		self,
 		output_dim,
+		units_per_head=256,
+		num_heads=4,
+		num_layers=4,
+		dropout_rate=0.2,
+		learn_input_features=False, # set this to True if you don't have input features to feed the model
 		random_gen=keras.random.SeedGenerator(),
 		**kwargs,
 	):
-		super().__init__(**kwargs)
+		super(GraphAttentionNetworkInductive, self).__init__(**kwargs)
+		self.dropout_rate = dropout_rate
+		self.hidden_units = units_per_head*num_heads
+		self.learn_input_features = learn_input_features
+		if learn_input_features:
+			self.learnable_input_layer = gat.layers.LearnableInputFeatures()
 		self.random_gen = random_gen
-		self.head_layer = keras.layers.Dense(1024)
+		self.head_layer = keras.layers.Dense(units_per_head*num_heads)
 		self.hidden_layers = []
-		for _ in range(4):
+		for _ in range(num_layers):
 			layer = {}
 			layer['normg'] = keras.layers.LayerNormalization()
-			layer['gat'] = gat.layers.MultiHeadGraphAttention(256, 4, dropout_rate=0.2, random_gen=random_gen, use_v2=True, residual=True)
+			layer['gat'] = gat.layers.MultiHeadGraphAttention(
+				units_per_head,
+				num_heads,
+				dropout_rate=dropout_rate,
+				random_gen=random_gen,
+				use_v2=True,
+				residual=True
+			)
 			layer['normd'] = keras.layers.LayerNormalization()
-			layer['dense'] = keras.layers.Dense(4096, activation=keras.ops.gelu)
+			layer['dense'] = keras.layers.Dense(units_per_head*num_heads*4, activation=keras.ops.gelu)
 			layer['add'] = keras.layers.Add()
 			self.hidden_layers.append(layer)
 		self.tail_layer = keras.layers.Dense(output_dim)
 
 	def call(self, inputs, training=False):
 		input_features, edges = inputs
+		if self.learn_input_features:
+			input_features = self.learnable_input_layer(input_features)
 		x = self.head_layer(input_features)
 		for layer in self.hidden_layers:
 			x = layer['normg'](x)
 			x = layer['gat']((x, edges), training=training)
 			xr = layer['normd'](x)
 			if training:
-				x = keras.random.dropout(xr, rate=0.2, seed=self.random_gen)
+				x = keras.random.dropout(xr, self.dropout_rate, seed=self.random_gen)
 			else:
 				x = xr
 			x = layer['dense'](x)

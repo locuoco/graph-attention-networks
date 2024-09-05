@@ -13,7 +13,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		merge_type='concat',
 		activation=keras.ops.gelu,
 		dropout_rate=0, # Srivastava et al., 2014
-		kernel_initializer='glorot_normal',
+		kernel_initializer='glorot_uniform',
 		kernel_regularizer=None,
 		random_gen=keras.random.SeedGenerator(),
 		use_bias=True,
@@ -165,3 +165,20 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 			else:
 				out = keras.ops.add(out, x)
 		return out
+
+class LearnableInputFeatures(keras.layers.Layer):
+	def __init__(self, **kwargs):
+		super(LearnableInputFeatures, self).__init__(**kwargs)
+
+	def build(self, input_shape):
+		input_dim = input_shape[-1]
+		self.input_weights = self.add_weight(
+			shape=(input_dim,),
+			name='input_weights',
+		)
+		super(LearnableInputFeatures, self).build(input_shape)
+		self.built = True
+
+	def call(self, input_features):
+		return input_features * self.input_weights
+

@@ -56,7 +56,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 
 # build model
 gat_model = gat.models.GraphAttentionNetworkTransductive(
-	features, edges, output_dim, random_gen
+	features, edges, output_dim, random_gen=random_gen
 )
 
 # compile model
