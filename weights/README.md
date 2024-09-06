@@ -1,0 +1,1 @@
+This folder will be populated with weights files for PPI and closeness centrality models 

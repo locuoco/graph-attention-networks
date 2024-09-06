@@ -16,10 +16,11 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		kernel_initializer='glorot_uniform',
 		kernel_regularizer=None,
 		random_gen=keras.random.SeedGenerator(),
+		version=1, # 1: original (2017), 2: fixed version (2021) with coupled source/target weights, 3: fixed version with uncoupled weights
 		use_bias=True,
-		use_v2=False, # fixed version by Brody et al. (2021)
 		residual=False,
 		repeat=False,
+		use_embeddings=False,
 		**kwargs,
 	):
 		super(MultiHeadGraphAttention, self).__init__(**kwargs)
@@ -32,9 +33,10 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
 		self.random_gen = random_gen
 		self.use_bias = use_bias
-		self.use_v2 = use_v2
+		self.version = version
 		self.residual = residual
 		self.repeat = repeat
+		self.use_embeddings = use_embeddings
 		if merge_type == 'concat':
 			self.output_dim = units * num_heads
 		else:
@@ -42,21 +44,38 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 
 	def build(self, input_shape):
 		input_dim = input_shape[0][-1]
+		if self.use_embeddings:
+			embed_dim = input_shape[1][-1]
 		#  kernel shape = (F, F'),
 		# where F is the number of input features per node and F' is the number of output features per node
-		self.kernel = self.add_weight(
+		self.kernel = []
+		self.kernel.append(self.add_weight(
 			shape=(input_dim, self.num_heads, self.units),
 			initializer=self.kernel_initializer,
 			regularizer=self.kernel_regularizer,
 			name='kernel',
-		)
+		))
+		if self.version == 3:
+			self.kernel.append(self.add_weight(
+				shape=(input_dim, self.num_heads, self.units),
+				initializer=self.kernel_initializer,
+				regularizer=self.kernel_regularizer,
+				name='kernel2',
+			))
+		if self.use_embeddings:
+			self.kernel_embeddings = self.add_weight(
+				shape=(1, self.num_heads, embed_dim),
+				initializer=self.kernel_initializer,
+				regularizer=self.kernel_regularizer,
+				name='kernel_embeddings',
+			)
 		self.kernel_attention1 = self.add_weight(
 			shape=(1, self.num_heads, self.units),
 			initializer=self.kernel_initializer,
 			regularizer=self.kernel_regularizer,
 			name='kernel_attention1',
 		)
-		if not self.use_v2:
+		if self.version == 1:
 			self.kernel_attention2 = self.add_weight(
 				shape=(1, self.num_heads, self.units),
 				initializer=self.kernel_initializer,
@@ -96,7 +115,10 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		return self.activation(output)
 
 	def call_sparse_edges_(self, inputs, training):
-		x, edges = inputs
+		if self.use_embeddings:
+			x, embeddings, edges = inputs
+		else:
+			x, edges = inputs
 		targets, sources = edges[:, 1], edges[:, 0]
 
 		n_nodes = keras.ops.shape(x)[-2]
@@ -107,28 +129,31 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		# and E is the total number of graph edges
 
 		# linearly transform node states and apply dropout
-		if training and self.dropout_rate > 0:
-			if self.repeat:
-				x_head = []
-				for i in range(self.num_heads):
-					xp = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
-					xp = keras.ops.tensordot(xp, keras.ops.take(self.kernel, i, axis=1), axes=1)
-					x_head.append(keras.ops.expand_dims(xp, axis=-2))
-				xp = keras.ops.concatenate(x_head, axis=-2)
+		xp = []
+		for n, kernel in enumerate(self.kernel):
+			if training and self.dropout_rate > 0:
+				if self.repeat:
+					x_head = []
+					for i in range(self.num_heads):
+						xn = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
+						xn = keras.ops.tensordot(xn, keras.ops.take(kernel, i, axis=1), axes=1)
+						x_head.append(keras.ops.expand_dims(xn, axis=-2))
+					xn = keras.ops.concatenate(x_head, axis=-2)
+				else:
+					xn = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
+					xn = keras.ops.tensordot(xn, kernel, axes=1)
 			else:
-				xp = keras.random.dropout(x, self.dropout_rate, seed=self.random_gen)
-				xp = keras.ops.tensordot(xp, self.kernel, axes=1)
-		else:
-			xp = keras.ops.tensordot(x, self.kernel, axes=1)
-		# shape = (N, H, F')
+				xn = keras.ops.tensordot(x, kernel, axes=1)
+			xp.append(xn)
+			# shape = (N, H, F')
 
-		if self.use_v2 and self.use_bias:
-			xbias = keras.ops.add(xp, self.bias_attention)
+		if self.version >= 2 and self.use_bias:
+			xbias = keras.ops.add(xp[0], self.bias_attention)
 		else:
-			xbias = xp
+			xbias = xp[0]
 
 		# (1) compute pair-wise attention scores
-		if not self.use_v2:
+		if self.version == 1:
 			f_t = keras.ops.sum(xbias * self.kernel_attention1, axis=-1)
 			f_s = keras.ops.sum(xbias * self.kernel_attention2, axis=-1)
 			f_t = keras.ops.take(f_t, targets, axis=0)
@@ -136,10 +161,21 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 			scores = keras.ops.leaky_relu(f_t + f_s)
 		else:
 			f_t = keras.ops.take(xbias, targets, axis=0)
-			f_s = keras.ops.take(xbias, sources, axis=0)
+			if self.version == 3:
+				f_t = keras.ops.take(xp[1], sources, axis=0)
+			else:
+				f_s = keras.ops.take(xbias, sources, axis=0)
 			scores = keras.ops.leaky_relu(f_t + f_s)
 			scores = keras.ops.sum(scores * self.kernel_attention1, axis=-1)
 		# shape = (E, H)
+		if self.use_embeddings:
+			e_head = []
+			for i in range(self.num_heads):
+				e_head.append(keras.ops.expand_dims(embeddings, axis=-2))
+			e_head = keras.ops.concatenate(e_head, axis=-2)
+			e_t = keras.ops.take(e_head, targets, axis=0)
+			e_s = keras.ops.take(e_head, sources, axis=0)
+			scores += keras.ops.sum((e_t - e_s) * self.kernel_embeddings, axis=-1)
 
 		# (2) normalize attention scores
 		scores = keras.ops.exp(scores - keras.ops.take(keras.ops.segment_max(scores, targets, n_nodes), targets, axis=0))
@@ -148,10 +184,10 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 
 		if training and self.dropout_rate > 0:
 			scores = keras.random.dropout(scores, self.dropout_rate, seed=self.random_gen)
-			xp = keras.random.dropout(xp, self.dropout_rate, seed=self.random_gen)
+			xp[0] = keras.random.dropout(xp[0], self.dropout_rate, seed=self.random_gen)
 
 		# (3) gather node states of neighbors, apply attention scores and aggregate
-		out = scores * keras.ops.take(xp, sources, axis=0)
+		out = scores * keras.ops.take(xp[0], sources, axis=0)
 		out = keras.ops.segment_sum(out, targets, n_nodes)
 		# concatenate or average the node states from each head
 		if self.merge_type == 'concat':
@@ -165,20 +201,4 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 			else:
 				out = keras.ops.add(out, x)
 		return out
-
-class LearnableInputFeatures(keras.layers.Layer):
-	def __init__(self, **kwargs):
-		super(LearnableInputFeatures, self).__init__(**kwargs)
-
-	def build(self, input_shape):
-		input_dim = input_shape[-1]
-		self.input_weights = self.add_weight(
-			shape=(input_dim,),
-			name='input_weights',
-		)
-		super(LearnableInputFeatures, self).build(input_shape)
-		self.built = True
-
-	def call(self, input_features):
-		return input_features * self.input_weights
 

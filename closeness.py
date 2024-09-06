@@ -1,9 +1,10 @@
 import os
+import pickle
 
 # Set environment variables for JAX memory limits
 os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.9'
 
-import rustworkx as rx
+import networkx as nx
 import keras
 import dgl
 
@@ -26,33 +27,48 @@ mode_datasets = [val_dataset, test_dataset, train_dataset]
 mode_graphs = [val_graphs, test_graphs, train_graphs]
 mode_labels = [val_labels, test_labels, train_labels]
 
+labelsfile = './data/closeness.pkl'
+
 for i, dataset in enumerate(mode_datasets):
 	for graph in dataset:
-		# get closeness centrality measures as node labels
-		g = rx.networkx_converter(dgl.to_networkx(graph))
-		label = rx.closeness_centrality(g)
-		label = keras.ops.convert_to_tensor([label[node] for node in range(g.num_nodes())])
-		label = keras.ops.expand_dims(label, axis=-1)
-		mode_labels[i].append(label)
+		if not os.path.isfile(labelsfile):
+			# get closeness centrality measures as node labels
+			g = dgl.to_networkx(graph)
+			label = nx.closeness_centrality(g)
+			label = keras.ops.convert_to_tensor([label[node] for node in g.nodes])
+			label = keras.ops.expand_dims(label, axis=-1)
+			mode_labels[i].append(label)
+
+		# get graph laplacian eigenmap (spectral positional node encodings)
+		features = keras.ops.convert_to_tensor(dgl.lap_pe(graph, 20))
+		features = keras.ops.abs(features)
 
 		# get edges
 		edges = keras.ops.transpose(keras.ops.convert_to_tensor(graph.edges(), dtype='int32'))
-		features = keras.ops.reshape(keras.ops.convert_to_tensor([1]*g.num_nodes()*128, dtype='float32'), (-1, 128))
 		mode_graphs[i].append((features, edges))
+
+if os.path.isfile(labelsfile):
+	with open(labelsfile, 'rb') as f:
+		mode_labels = pickle.load(f)
+	val_labels, test_labels, train_labels = mode_labels
+else:
+	with open(labelsfile, 'wb') as f:
+		pickle.dump(mode_labels, f, pickle.HIGHEST_PROTOCOL)
 
 # train and evaluate
 
 # define hyper-parameters
 output_dim = 1
 
-num_epochs = 10000
+num_epochs = 1000
 #batch_size = 1 # number of graphs per batch
 learning_rate = 0.001
 
 keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
-loss_fn = keras.losses.MeanSquaredError()
+mse_fn = keras.losses.MeanSquaredError(name='mse')
+mae_fn = keras.losses.MeanAbsoluteError(name='mae')
 optimizer = keras.optimizers.Adam(learning_rate)
 early_stopping = keras.callbacks.EarlyStopping(
 	patience=100,
@@ -62,15 +78,18 @@ early_stopping = keras.callbacks.EarlyStopping(
 # build model
 gat_model = gat.models.GraphAttentionNetworkInductive(
 	output_dim,
-	units_per_head=32,
-	num_layers=8,
+	units_per_head=64,
+	num_heads=16,
+	num_layers=4,
 	dropout_rate=0,
-	learn_input_features=True,
+	use_layer_norm=True,
+	use_dense=False,
+	input_feats_as_embeddings=True,
 	random_gen=random_gen
 )
 
 # compile model
-gat_model.compile(loss=loss_fn, optimizer=optimizer)
+gat_model.compile(loss=mae_fn, optimizer=optimizer, metrics=[mse_fn])
 
 weightsfile = './weights/closeness.weights.h5'
 
@@ -92,11 +111,11 @@ if not load_last_weights or continue_training:
 		initial_epoch=initial_epoch,
 	)
 
-test_loss = gat_model.evaluate(test_generator, verbose=0)
+test_mae, test_mse = gat_model.evaluate(test_generator, verbose=0)
 
 gat_model.save_weights(weightsfile)
 
-print('--'*38 + f'\nTest loss: {test_loss:.4f}')
+print('--'*38 + f'\nTest MAE: {test_mae:.4f}, MSE: {test_mse:.4f}')
 
 
 

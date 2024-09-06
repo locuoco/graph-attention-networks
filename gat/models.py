@@ -32,7 +32,7 @@ class GraphAttentionNetworkTransductive(keras.Model):
 			dropout_rate=0.6,
 			kernel_regularizer=keras.regularizers.L2(2.5e-4),
 			random_gen=random_gen,
-			use_v2=True,
+			version=2,
 			repeat=True,
 		)
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(
@@ -41,7 +41,7 @@ class GraphAttentionNetworkTransductive(keras.Model):
 			dropout_rate=0.6,
 			kernel_regularizer=keras.regularizers.L2(2.5e-4),
 			random_gen=random_gen,
-			use_v2=True,
+			version=2,
 		)
 
 	def call(self, indices, training=False):
@@ -69,7 +69,7 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 			dropout_rate=0.6,
 			kernel_regularizer=keras.regularizers.L2(1e-3),
 			random_gen=random_gen,
-			use_v2=True,
+			version=2,
 			repeat=True,
 		)
 		self.attention_layer2 = gat.layers.MultiHeadGraphAttention(
@@ -79,7 +79,7 @@ class GraphAttentionNetworkTransductive2(keras.Model):
 			activation=keras.ops.elu,
 			dropout_rate=0.5,
 			random_gen=random_gen,
-			use_v2=True,
+			version=2,
 			repeat=True,
 		)
 
@@ -96,51 +96,68 @@ class GraphAttentionNetworkInductive(keras.Model):
 		num_heads=4,
 		num_layers=4,
 		dropout_rate=0.2,
-		learn_input_features=False, # set this to True if you don't have input features to feed the model
+		use_layer_norm=True,
+		use_dense=True,
+		residual=True,
+		input_feats_as_embeddings=False,
+		version=2,
 		random_gen=keras.random.SeedGenerator(),
 		**kwargs,
 	):
 		super(GraphAttentionNetworkInductive, self).__init__(**kwargs)
 		self.dropout_rate = dropout_rate
 		self.hidden_units = units_per_head*num_heads
-		self.learn_input_features = learn_input_features
-		if learn_input_features:
-			self.learnable_input_layer = gat.layers.LearnableInputFeatures()
+		self.use_layer_norm = use_layer_norm
+		self.use_dense = use_dense
+		self.residual = residual
+		self.input_feats_as_embeddings = input_feats_as_embeddings
 		self.random_gen = random_gen
 		self.head_layer = keras.layers.Dense(units_per_head*num_heads)
 		self.hidden_layers = []
 		for _ in range(num_layers):
 			layer = {}
-			layer['normg'] = keras.layers.LayerNormalization()
+			if use_layer_norm:
+				layer['normg'] = keras.layers.LayerNormalization()
 			layer['gat'] = gat.layers.MultiHeadGraphAttention(
 				units_per_head,
 				num_heads,
 				dropout_rate=dropout_rate,
 				random_gen=random_gen,
-				use_v2=True,
-				residual=True
+				version=version,
+				residual=residual,
+				use_embeddings=input_feats_as_embeddings,
 			)
-			layer['normd'] = keras.layers.LayerNormalization()
-			layer['dense'] = keras.layers.Dense(units_per_head*num_heads*4, activation=keras.ops.gelu)
-			layer['add'] = keras.layers.Add()
+			if use_dense:
+				if use_layer_norm:
+					layer['normd'] = keras.layers.LayerNormalization()
+				layer['dense'] = keras.layers.Dense(units_per_head*num_heads*4, activation=keras.ops.gelu)
+				layer['add'] = keras.layers.Add()
 			self.hidden_layers.append(layer)
 		self.tail_layer = keras.layers.Dense(output_dim)
 
 	def call(self, inputs, training=False):
 		input_features, edges = inputs
-		if self.learn_input_features:
-			input_features = self.learnable_input_layer(input_features)
 		x = self.head_layer(input_features)
 		for layer in self.hidden_layers:
-			x = layer['normg'](x)
-			x = layer['gat']((x, edges), training=training)
-			xr = layer['normd'](x)
-			if training:
-				x = keras.random.dropout(xr, self.dropout_rate, seed=self.random_gen)
+			if self.use_layer_norm:
+				x = layer['normg'](x)
+			if self.input_feats_as_embeddings:
+				x = layer['gat']((x, input_features, edges), training=training)
 			else:
-				x = xr
-			x = layer['dense'](x)
-			x = layer['add'](keras.ops.split(x, 4, axis=-1)) + xr # residual
+				x = layer['gat']((x, edges), training=training)
+			if self.use_dense:
+				if self.use_layer_norm:
+					xr = layer['normd'](x)
+				else:
+					xr = x
+				if training:
+					x = keras.random.dropout(xr, self.dropout_rate, seed=self.random_gen)
+				else:
+					x = xr
+				x = layer['dense'](x)
+				x = layer['add'](keras.ops.split(x, 4, axis=-1))
+				if self.residual:
+					x = x + xr
 		outputs = self.tail_layer(x)
 		return outputs
 
