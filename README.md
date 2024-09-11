@@ -34,7 +34,44 @@ Note further that, while the code is mostly backend-agnostic, incompatible backe
 
 For NetworkX installation, you can use (using Anaconda):
 ```sh
-conda install networkx'
+conda install networkx
 ```
 
 ## Explanation
+
+A graph attention network is characterized by the use of a so-called graph attention layer, which is a function of node features ![\mathbf{X} = \{\mathbf{x}_1,\dots,\mathbf{x}_N\}, \quad \mathbf{x}_i \in \mathbb{R}^F](https://quicklatex.com/cache3/e2/ql_3ea2f4c358cfceb055d3ee710cfa6de2_l3.png), where $N$ is the number of nodes in the graph and $F$ is the number of features in each node. After applying a linear transformation by a weight matrix ![W \in \mathbb{R}^{F'\times F}](https://quicklatex.com/cache3/23/ql_4888e3123a8b4858bca24ef58b63fd23_l3.png) to each node, where $F'$ is the number of output features, we define the attention mechanism ![a : \mathbb{R}^{F'} \times \mathbb{R}^{F'} \rightarrow \mathbb{R}](https://quicklatex.com/cache3/29/ql_f1012565442e3839c953cfb68c477929_l3.png) which computes the attention coefficients
+
+<p align="center">
+<img alt="e_{ij} = a(W\mathbf{x}_i, W\mathbf{x}_j)" src="https://quicklatex.com/cache3/4c/ql_022dcc16d1098cf160255ad2619c594c_l3.png">
+</p>
+
+that indicates the importance of node $j$'s features to node $i$. We inject graph structure into the mechanism by performing masked attention, meaning that $e_{ij}$ is computed only for nodes ![e_{ij} = a(W\mathbf{x}_i, W\mathbf{x}_j)](https://quicklatex.com/cache3/9e/ql_6183274cb113a42b3ade0fc1eeda629e_l3.png), where ![\mathcal{N}_i](https://quicklatex.com/cache3/9a/ql_38a8afd0d8c58bce466e682d0dba089a_l3.png) is some neighborhood of node $i$ in the graph. In practice, first-order neighborhood is chosen. Attention coefficients are then normalized across $j$ using the softmax function:
+
+<p align="center">
+<img alt="\alpha_{ij} = \mathrm{softmax}_j (e_{ij}) = \frac{\mathrm{exp}(e_{ij})}{\sum_{k \in \mathcal{N}_i} \mathrm{exp}(e_{ij})}." src="https://quicklatex.com/cache3/c3/ql_3cd5303047919d04b69f55bf94dcb1c3_l3.png">
+</p>
+
+Velickovic et al. (2018) suggest to use a single-layer feedforward neural network for the attention mechanism, parametrized by a weight vector ![\mathbf{a} \in \mathbb{R}^{2F'}](https://quicklatex.com/cache3/00/ql_2e11c75cd62f4da57884eb00cde74700_l3.png) and applying the Leaky ReLU nonlinearity (with negative slope $\alpha = 0.2$, see Redmon et al., 2015), i.e.:
+
+<p align="center">
+<img alt="e_{ij} = \mathrm{LeakyReLU}(\mathbf{a}^T [W\mathbf{h}_i || W\mathbf{h}_j])}," src="https://quicklatex.com/cache3/28/ql_85b3fc4b38f36d3f92eff8b84c595228_l3.png">
+</p>
+
+where $\cdot^T$ represent transposition and $||$ is the concatenation operation. The normalized attention coefficient are then used to compute a linear combination of the features corresponding to them, with a possible nonlinearity $\sigma$ at the end:
+
+<p align="center">
+<img alt="\mathbf{h}_i = \sigma \left(\sum_{j \in \mathcal{N}_i} \alpha_{ij} W \mathbf{x}_{j} \right)." src="https://quicklatex.com/cache3/1e/ql_c685104789ec2a0db31c7b7b2b006c1e_l3.png">
+</p>
+
+To stabilize training, it is possible to employ multi-head attention, based on the work by Vaswani et al. (2017). If $K$ is the number of attention heads, then we execute an attention mechanism for each head and concatenate the output features:
+
+<p align="center">
+<img alt="\DeclareMathOperator*{\bigVert}{\big\Vert} \mathbf{h}_i = \bigVert_{k=1}^K \sigma \left(\sum_{j \in \mathcal{N}_i} \alpha_{ij}^k W^k \mathbf{x}_{j} \right)." src="https://quicklatex.com/cache3/25/ql_e1c72175a14b66ebf3d982c478ce0f25_l3.png">
+</p>
+
+Note that, in this case, the output will consist of $KF'$ features for each node. For the last layer, rather than concatenation, averaging is usually preferred:
+
+<p align="center">
+<img alt="\mathbf{h}_i = \sigma \left(\frac{1}{K} \sum_{k=1}^K \sum_{j \in \mathcal{N}_i} \alpha_{ij}^k W^k \mathbf{x}_{j} \right)." src="https://quicklatex.com/cache3/89/ql_9c0b748f479eeada02bc246839f4a289_l3.png">
+</p>
+
