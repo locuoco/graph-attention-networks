@@ -99,7 +99,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 		use_layer_norm=True,
 		use_dense=True,
 		residual=True,
-		input_feats_as_embeddings=False,
+		use_embeddings=False,
 		version=2,
 		random_gen=keras.random.SeedGenerator(),
 		**kwargs,
@@ -110,7 +110,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 		self.use_layer_norm = use_layer_norm
 		self.use_dense = use_dense
 		self.residual = residual
-		self.input_feats_as_embeddings = input_feats_as_embeddings
+		self.use_embeddings = use_embeddings
 		self.random_gen = random_gen
 		self.head_layer = keras.layers.Dense(units_per_head*num_heads)
 		self.hidden_layers = []
@@ -125,7 +125,7 @@ class GraphAttentionNetworkInductive(keras.Model):
 				random_gen=random_gen,
 				version=version,
 				residual=residual,
-				use_embeddings=input_feats_as_embeddings,
+				use_embeddings=use_embeddings,
 			)
 			if use_dense:
 				if use_layer_norm:
@@ -136,13 +136,16 @@ class GraphAttentionNetworkInductive(keras.Model):
 		self.tail_layer = keras.layers.Dense(output_dim)
 
 	def call(self, inputs, training=False):
-		input_features, edges = inputs
+		if self.use_embeddings:
+			input_features, embeddings, edges = inputs
+		else:
+			input_features, edges = inputs
 		x = self.head_layer(input_features)
 		for layer in self.hidden_layers:
 			if self.use_layer_norm:
 				x = layer['normg'](x)
-			if self.input_feats_as_embeddings:
-				x = layer['gat']((x, input_features, edges), training=training)
+			if self.use_embeddings:
+				x = layer['gat']((x, embeddings, edges), training=training)
 			else:
 				x = layer['gat']((x, edges), training=training)
 			if self.use_dense:

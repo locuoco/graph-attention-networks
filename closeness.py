@@ -14,24 +14,26 @@ load_last_weights = False
 continue_training = False
 initial_epoch = 0
 
-val_dataset = dgl.data.PPIDataset(mode='valid')
-test_dataset = dgl.data.PPIDataset(mode='test')
-train_dataset = dgl.data.PPIDataset(mode='train')
-val_graphs = []
-test_graphs = []
-train_graphs = []
-val_labels = []
-test_labels = []
-train_labels = []
-mode_datasets = [val_dataset, test_dataset, train_dataset]
-mode_graphs = [val_graphs, test_graphs, train_graphs]
-mode_labels = [val_labels, test_labels, train_labels]
-
 labelsfile = './data/closeness.pkl'
 
-for i, dataset in enumerate(mode_datasets):
-	for graph in dataset:
-		if not os.path.isfile(labelsfile):
+if not os.path.isfile(labelsfile):
+	print('Calculating labels and embeddings... This may take a while')
+
+	val_dataset = dgl.data.PPIDataset(mode='valid')
+	test_dataset = dgl.data.PPIDataset(mode='test')
+	train_dataset = dgl.data.PPIDataset(mode='train')
+	val_graphs = []
+	test_graphs = []
+	train_graphs = []
+	val_labels = []
+	test_labels = []
+	train_labels = []
+	mode_datasets = [val_dataset, test_dataset, train_dataset]
+	mode_graphs = [val_graphs, test_graphs, train_graphs]
+	mode_labels = [val_labels, test_labels, train_labels]
+
+	for i, dataset in enumerate(mode_datasets):
+		for graph in dataset:
 			# get closeness centrality measures as node labels
 			g = dgl.to_networkx(graph)
 			label = nx.closeness_centrality(g)
@@ -39,21 +41,32 @@ for i, dataset in enumerate(mode_datasets):
 			label = keras.ops.expand_dims(label, axis=-1)
 			mode_labels[i].append(label)
 
-		# get graph laplacian eigenmap (spectral positional node encodings)
-		features = keras.ops.convert_to_tensor(dgl.lap_pe(graph, 20))
-		features = keras.ops.abs(features)
+			# get graph laplacian eigenmap (spectral positional node encodings)
+			eigvecs, eigvals = dgl.lap_pe(graph, 100, return_eigval=True)
+			eigvecs = keras.ops.convert_to_tensor(eigvecs)
+			eigvals = keras.ops.convert_to_tensor(eigvals)
+			embeddings = []
+			for k, eigval in enumerate(eigvals):
+				if eigval > 1e-10 and len(embeddings) < 20:
+					embeddings.append(eigvecs[:, k])
+			embeddings = keras.ops.transpose(keras.ops.convert_to_tensor(embeddings)) * keras.ops.sqrt(graph.num_nodes())
+			features = keras.ops.abs(embeddings)
 
-		# get edges
-		edges = keras.ops.transpose(keras.ops.convert_to_tensor(graph.edges(), dtype='int32'))
-		mode_graphs[i].append((features, edges))
+			# get edges
+			edges = keras.ops.transpose(keras.ops.convert_to_tensor(graph.edges(), dtype='int32'))
+			mode_graphs[i].append((features, embeddings, edges))
 
-if os.path.isfile(labelsfile):
-	with open(labelsfile, 'rb') as f:
-		mode_labels = pickle.load(f)
-	val_labels, test_labels, train_labels = mode_labels
-else:
 	with open(labelsfile, 'wb') as f:
-		pickle.dump(mode_labels, f, pickle.HIGHEST_PROTOCOL)
+		pickle.dump((mode_labels, mode_graphs), f, pickle.HIGHEST_PROTOCOL)
+else:
+	try:
+		with open(labelsfile, 'rb') as f:
+			mode_labels, mode_graphs = pickle.load(f)
+	except:
+		print('Cannot load ', labelsfile, ', try to delete it before running the script.', sep='')
+		raise
+	val_labels, test_labels, train_labels = mode_labels
+	val_graphs, test_graphs, train_graphs = mode_graphs
 
 # train and evaluate
 
@@ -78,13 +91,13 @@ early_stopping = keras.callbacks.EarlyStopping(
 # build model
 gat_model = gat.models.GraphAttentionNetworkInductive(
 	output_dim,
-	units_per_head=64,
+	units_per_head=32,
 	num_heads=16,
-	num_layers=4,
+	num_layers=8,
 	dropout_rate=0,
 	use_layer_norm=True,
 	use_dense=False,
-	input_feats_as_embeddings=True,
+	use_embeddings=True,
 	random_gen=random_gen
 )
 
@@ -115,7 +128,7 @@ test_mae, test_mse = gat_model.evaluate(test_generator, verbose=0)
 
 gat_model.save_weights(weightsfile)
 
-print('--'*38 + f'\nTest MAE: {test_mae:.4f}, MSE: {test_mse:.4f}')
+print('--'*38 + f'\nTest MAE: {test_mae:.4f}, MSE: {test_mse:.4e}')
 
 
 

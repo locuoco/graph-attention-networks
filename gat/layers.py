@@ -44,8 +44,6 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 
 	def build(self, input_shape):
 		input_dim = input_shape[0][-1]
-		if self.use_embeddings:
-			embed_dim = input_shape[1][-1]
 		#  kernel shape = (F, F'),
 		# where F is the number of input features per node and F' is the number of output features per node
 		self.kernel = []
@@ -64,7 +62,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 			))
 		if self.use_embeddings:
 			self.kernel_embeddings = self.add_weight(
-				shape=(1, self.num_heads, embed_dim),
+				shape=(1, self.num_heads),
 				initializer=self.kernel_initializer,
 				regularizer=self.kernel_regularizer,
 				name='kernel_embeddings',
@@ -160,11 +158,11 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 			f_s = keras.ops.take(f_s, sources, axis=0)
 			scores = keras.ops.leaky_relu(f_t + f_s)
 		else:
-			f_t = keras.ops.take(xbias, targets, axis=0)
 			if self.version == 3:
-				f_t = keras.ops.take(xp[1], sources, axis=0)
+				f_t = keras.ops.take(xp[1], targets, axis=0)
 			else:
-				f_s = keras.ops.take(xbias, sources, axis=0)
+				f_t = keras.ops.take(xbias, targets, axis=0)
+			f_s = keras.ops.take(xbias, sources, axis=0)
 			scores = keras.ops.leaky_relu(f_t + f_s)
 			scores = keras.ops.sum(scores * self.kernel_attention1, axis=-1)
 		# shape = (E, H)
@@ -175,7 +173,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 			e_head = keras.ops.concatenate(e_head, axis=-2)
 			e_t = keras.ops.take(e_head, targets, axis=0)
 			e_s = keras.ops.take(e_head, sources, axis=0)
-			scores += keras.ops.sum((e_t - e_s) * self.kernel_embeddings, axis=-1)
+			scores += keras.ops.sum(e_t * e_s, axis=-1) * self.kernel_embeddings
 
 		# (2) normalize attention scores
 		scores = keras.ops.exp(scores - keras.ops.take(keras.ops.segment_max(scores, targets, n_nodes), targets, axis=0))
