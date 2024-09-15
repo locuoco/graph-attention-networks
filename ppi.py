@@ -1,14 +1,15 @@
 import os
 
 # Set environment variables for JAX memory limits
-os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.9'
+os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
 
 import keras
 import dgl
 
 import gat.models
+import optimizers
 
-load_last_weights = False
+load_last_weights = True
 continue_training = False
 initial_epoch = 0
 
@@ -50,7 +51,7 @@ keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
 loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
-optimizer = keras.optimizers.Adam(learning_rate)
+optimizer = optimizers.Adan(learning_rate)
 accuracy_fn = keras.metrics.BinaryAccuracy(name='acc')
 f1_fn = keras.metrics.F1Score(average='micro', threshold=0.5, name='f1_score')
 early_stopping = keras.callbacks.EarlyStopping(

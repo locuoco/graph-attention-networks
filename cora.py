@@ -2,6 +2,7 @@ import keras
 import dgl
 
 import gat.models
+import optimizers
 
 dataset = dgl.data.CoraGraphDataset()
 graph = dataset[0]
@@ -38,7 +39,7 @@ train_labels = labels[train_mask]
 # define hyper-parameters
 output_dim = int(keras.ops.amax(labels))+1
 
-num_epochs = 1000
+num_epochs = 5000
 batch_size = 512
 learning_rate = 0.005
 
@@ -46,11 +47,11 @@ keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
 loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-optimizer = keras.optimizers.Adam(learning_rate)
+optimizer = optimizers.Adan(learning_rate)
 accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_loss',
-	patience=100,
+	patience=200,
 	restore_best_weights=True
 )
 
