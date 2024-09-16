@@ -9,14 +9,15 @@ import keras
 import dgl
 
 import gat.models
+import optimizers
 
 load_last_weights = False
 continue_training = False
 initial_epoch = 0
 
-labelsfile = './data/closeness.pkl'
+datafile = './data/closeness.pkl'
 
-if not os.path.isfile(labelsfile):
+if not os.path.isfile(datafile):
 	print('Calculating labels and embeddings... This may take a while')
 
 	val_dataset = dgl.data.PPIDataset(mode='valid')
@@ -56,14 +57,14 @@ if not os.path.isfile(labelsfile):
 			edges = keras.ops.transpose(keras.ops.convert_to_tensor(graph.edges(), dtype='int32'))
 			mode_graphs[i].append((features, embeddings, edges))
 
-	with open(labelsfile, 'wb') as f:
+	with open(datafile, 'wb') as f:
 		pickle.dump((mode_labels, mode_graphs), f, pickle.HIGHEST_PROTOCOL)
 else:
 	try:
-		with open(labelsfile, 'rb') as f:
+		with open(datafile, 'rb') as f:
 			mode_labels, mode_graphs = pickle.load(f)
 	except:
-		print('Cannot load ', labelsfile, ', try to delete it before running the script.', sep='')
+		print('Cannot load ', datafile, ', try to delete it before running the script.', sep='')
 		raise
 	val_labels, test_labels, train_labels = mode_labels
 	val_graphs, test_graphs, train_graphs = mode_graphs
@@ -73,7 +74,7 @@ else:
 # define hyper-parameters
 output_dim = 1
 
-num_epochs = 1000
+num_epochs = 5000
 #batch_size = 1 # number of graphs per batch
 learning_rate = 0.001
 
@@ -82,7 +83,7 @@ random_gen = keras.random.SeedGenerator(1234)
 
 mse_fn = keras.losses.MeanSquaredError(name='mse')
 mae_fn = keras.losses.MeanAbsoluteError(name='mae')
-optimizer = keras.optimizers.Adam(learning_rate)
+optimizer = optimizers.Adan(learning_rate)
 early_stopping = keras.callbacks.EarlyStopping(
 	patience=100,
 	restore_best_weights=True

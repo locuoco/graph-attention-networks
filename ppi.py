@@ -9,7 +9,7 @@ import dgl
 import gat.models
 import optimizers
 
-load_last_weights = True
+load_last_weights = False
 continue_training = False
 initial_epoch = 0
 
