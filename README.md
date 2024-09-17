@@ -77,3 +77,21 @@ Note that, in this case, the output will consist of $KF'$ features for each node
 <img alt="\mathbf{h}_i = \sigma \left(\frac{1}{K} \sum_{k=1}^K \sum_{j \in \mathcal{N}_i} \alpha_{ij}^k W^k \mathbf{x}_{j} \right)." src="https://quicklatex.com/cache3/89/ql_9c0b748f479eeada02bc246839f4a289_l3.png">
 </p>
 
+## Bibliography
+
+- Y. Nesterov, _A method of solving a convex programming problem with convergence rate O(1/k^2)_, Dokl. Akad. Nauk SSSR, Vol. 269, No. 3, 543-547, 1983.
+- C. L. Giles, K. D. Bollacker, S. Lawrence, _CiteSeer: An Automatic Citation Indexing System_, Proceedings of the third ACM conference on Digital libraries, 1998.
+- A. K. McCallum, K. Nigam, J. Rennie, K. Seymore, _Automating the Construction of Internet Portals with Machine Learning_, Information Retrieval Journal 3(2): 127-163, 1999.
+- P. Sen, G. Namata, M. Bilgic, L. Getoor, B. Gallagher, T. Eliassi-Rad, _Collective Classification in Network Data_, AI Magazine, 29(3), 93, 2008.
+- X. Glorot, Y. Bengio, _Understanding the difficulty of training deep feedforward neural networks_, International Conference on Artificial Intelligence and Statistics, 2010.
+- N. Srivastava, G. Hinton, A. Krizhevsky, I. Sutskever, R. Salakhutdinov, _Dropout: A Simple Way to Prevent Neural Networks from Overfitting_, Journal of machine learning research, 2014.
+- D. P. Kingma, J. L. Ba, _Adam: A Method for Stochastic Optimization_, 3rd International Conference for Learning Representations, San Diego, 2015.
+- C. Szegedy, V. Vanhoucke, S. Ioffe, J. Shlens, Z. Wojna, _Rethinking the Inception Architecture for Computer Vision_, Computer Vision and Pattern Recognition, 2015.
+- J. L. Ba, J. R. Kiros, G. E. Hinton, _Layer Normalization_, Advances in NIPS, Deep Learning Symposium, 2016.
+- W. L. Hamilton, R. Ying, J. Leskovec, _Inductive Representation Learning on Large Graphs_, Advances in Neural Information Processing Systems 30, 2017.
+- A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, I. Polosukhin, _Attention Is All You Need_, Neural Information Processing Systems, 2017.
+- P. Velickovic, G. Cucurull, A. Casanova, A. Romero, P. Liò, Y. Bengio, _Graph Attention Networks_, International Conference on Learning Representations, 2017.
+- S. Merity, _Single Headed Attention RNN: Stop Thinking With Your Head_, 2019 (not peer-reviewed).
+- S. Brody, U. Alon, E. Yahav, _How Attentive are Graph Attention Networks?_, ICLR 2022.
+- V. P. Dwivedi, C. K. Joshi, A. T. Luu, T. Laurent, Y. Bengio, X. Bresson, _Benchmaking Graph Neural Networks_, JMLR 2022.
+- X. Xie, P. Zhou, H. Li, Z. Lin, S. Yan, _Adan: Adaptive Nesterov Momentum Algorithm for Faster Optimizing Deep Models_, IEEE Transactions on Pattern Analysis and Machine Intelligence, 2022.
