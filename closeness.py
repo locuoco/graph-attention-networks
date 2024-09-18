@@ -9,7 +9,8 @@ import keras
 import dgl
 
 import gat.models
-import optimizers
+import src.optimizers
+import src.losses
 
 load_last_weights = False
 continue_training = False
@@ -81,11 +82,12 @@ learning_rate = 0.001
 keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
-mse_fn = keras.losses.MeanSquaredError(name='mse')
+mase_fn = src.losses.MeanAbsoluteScaledError(name='mase')
 mae_fn = keras.losses.MeanAbsoluteError(name='mae')
-optimizer = optimizers.Adan(learning_rate)
+mse_fn = keras.losses.MeanSquaredError(name='mse')
+optimizer = src.optimizers.Adan(learning_rate)
 early_stopping = keras.callbacks.EarlyStopping(
-	patience=100,
+	patience=300,
 	restore_best_weights=True
 )
 
@@ -103,7 +105,7 @@ gat_model = gat.models.GraphAttentionNetworkInductive(
 )
 
 # compile model
-gat_model.compile(loss=mae_fn, optimizer=optimizer, metrics=[mse_fn])
+gat_model.compile(loss=mae_fn, optimizer=optimizer, metrics=[mase_fn, mse_fn])
 
 weightsfile = './weights/closeness.weights.h5'
 
@@ -125,11 +127,11 @@ if not load_last_weights or continue_training:
 		initial_epoch=initial_epoch,
 	)
 
-test_mae, test_mse = gat_model.evaluate(test_generator, verbose=0)
+test_mae, test_mase, test_mse = gat_model.evaluate(test_generator, verbose=0)
 
 gat_model.save_weights(weightsfile)
 
-print('--'*38 + f'\nTest MAE: {test_mae:.4f}, MSE: {test_mse:.4e}')
+print('--'*38 + f'\nTest MAE: {test_mae:.4f}, MASE: {test_mase:.4f}, MSE: {test_mse:.4e}')
 
 
 

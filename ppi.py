@@ -7,7 +7,7 @@ import keras
 import dgl
 
 import gat.models
-import optimizers
+import src.optimizers
 
 load_last_weights = False
 continue_training = False
@@ -51,7 +51,7 @@ keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
 loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
-optimizer = optimizers.Adan(learning_rate)
+optimizer = src.optimizers.Adan(learning_rate)
 accuracy_fn = keras.metrics.BinaryAccuracy(name='acc')
 f1_fn = keras.metrics.F1Score(average='micro', threshold=0.5, name='f1_score')
 early_stopping = keras.callbacks.EarlyStopping(

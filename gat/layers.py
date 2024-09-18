@@ -4,7 +4,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 	'''
 		Graph attention mechanism
 		Cfr. P. Velickovic et al. (2017)
-		Fixed version (v2) by S. Brody (2021)
+		Fixed version (v2) by S. Brody (2022)
 	'''
 	def __init__(
 		self,
@@ -16,7 +16,7 @@ class MultiHeadGraphAttention(keras.layers.Layer):
 		kernel_initializer='glorot_uniform',
 		kernel_regularizer=None,
 		random_gen=keras.random.SeedGenerator(),
-		version=1, # 1: original (2017), 2: fixed version (2021) with coupled source/target weights, 3: fixed version with uncoupled weights
+		version=1, # 1: original (2017), 2: fixed version (2022) with coupled source/target weights, 3: fixed version with uncoupled weights
 		use_bias=True,
 		residual=False,
 		repeat=False,

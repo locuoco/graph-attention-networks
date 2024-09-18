@@ -2,7 +2,7 @@ import keras
 import dgl
 
 import gat.models
-import optimizers
+import src.optimizers
 
 dataset = dgl.data.CoraGraphDataset()
 graph = dataset[0]
@@ -47,7 +47,7 @@ keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
 loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-optimizer = optimizers.Adan(learning_rate)
+optimizer = src.optimizers.Adan(learning_rate)
 accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
 early_stopping = keras.callbacks.EarlyStopping(
 	monitor='val_loss',
