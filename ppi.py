@@ -31,10 +31,10 @@ for i, dataset in enumerate(mode_datasets):
 		edges = keras.ops.transpose(keras.ops.convert_to_tensor(graph.edges(), dtype='int32'))
 
 		# get node features
-		features = graph.ndata['feat']
+		features = keras.ops.convert_to_tensor(graph.ndata['feat'])
 
 		# get ground-truth labels
-		mode_labels[i].append(graph.ndata['label'])
+		mode_labels[i].append(keras.ops.convert_to_tensor(graph.ndata['label']))
 
 		mode_graphs[i].append((features, edges))
 

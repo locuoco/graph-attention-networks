@@ -87,7 +87,7 @@ mae_fn = keras.losses.MeanAbsoluteError(name='mae')
 mse_fn = keras.losses.MeanSquaredError(name='mse')
 optimizer = src.optimizers.Adan(learning_rate)
 early_stopping = keras.callbacks.EarlyStopping(
-	patience=300,
+	patience=100,
 	restore_best_weights=True
 )
 
