@@ -50,7 +50,7 @@ learning_rate = 0.001
 keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
-loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
+loss_fn = keras.losses.BinaryCrossentropy(from_logits=True, label_smoothing=0.1)
 optimizer = src.optimizers.Adan(learning_rate)
 accuracy_fn = keras.metrics.BinaryAccuracy(name='acc')
 f1_fn = keras.metrics.F1Score(average='micro', threshold=0.5, name='f1_score')

@@ -1,8 +1,9 @@
+from statistics import mean, stdev
 import keras
 import dgl
 
 import gat.models
-import src.optimizers
+import src.losses
 
 dataset = dgl.data.CoraGraphDataset()
 graph = dataset[0]
@@ -46,36 +47,37 @@ learning_rate = 0.005
 keras.utils.set_random_seed(1234)
 random_gen = keras.random.SeedGenerator(1234)
 
-loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-optimizer = src.optimizers.Adan(learning_rate)
-accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
-early_stopping = keras.callbacks.EarlyStopping(
-	monitor='val_loss',
-	patience=200,
-	restore_best_weights=True
-)
+iterations = 20
+accs = []
+for i in range(iterations):
+	loss_fn = src.losses.SparseCategoricalCrossentropy(from_logits=True, label_smoothing=0.2)
+	optimizer = keras.optimizers.Adam(learning_rate)
+	accuracy_fn = keras.metrics.SparseCategoricalAccuracy(name='acc')
+	early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=100, restore_best_weights=True)
 
-# build model
-gat_model = gat.models.GraphAttentionNetworkTransductive(
-	features, edges, output_dim, random_gen=random_gen
-)
+	# build model
+	gat_model = gat.models.GraphAttentionNetworkTransductive1(
+		features, edges, output_dim, random_gen=random_gen
+	)
 
-# compile model
-gat_model.compile(loss=loss_fn, optimizer=optimizer, metrics=[accuracy_fn])
+	# compile model
+	gat_model.compile(loss=loss_fn, optimizer=optimizer, metrics=[accuracy_fn])
 
-gat_model.fit(
-	x=train_indices,
-	y=train_labels,
-	validation_data=(val_indices, val_labels),
-	batch_size=batch_size,
-	epochs=num_epochs,
-	callbacks=[early_stopping],
-	verbose=2,
-)
+	gat_model.fit(
+		x=train_indices,
+		y=train_labels,
+		validation_data=(val_indices, val_labels),
+		batch_size=batch_size,
+		epochs=num_epochs,
+		callbacks=[early_stopping],
+		verbose=0,
+	)
 
-_, test_accuracy = gat_model.evaluate(x=test_indices, y=test_labels, verbose=0)
+	_, test_accuracy = gat_model.evaluate(x=test_indices, y=test_labels, verbose=0)
+	print('--'*38 + f'\nTest Accuracy {i}: {test_accuracy*100:.1f}%')
+	accs.append(test_accuracy)
 
-print('--'*38 + f'\nTest Accuracy {test_accuracy*100:.1f}%')
+print('--'*38 + f'\nTest Accuracy ({mean(accs)*100:.1f} +/- {stdev(accs)*100:.1f})%')
 
 
 
